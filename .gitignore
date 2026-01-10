@@ -1,0 +1,10 @@
+out/
+*.class
+.idea/
+*.iml
+__pycache__/
+*.pyc
+python/learning/
+python/proyectos/
+java/learning/
+assembler/

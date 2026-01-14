@@ -1,5 +1,19 @@
 import math
 
+def rango(lista):
+    return max(lista) - min(lista)
+
+def varianza(lista):
+    med = media(lista)
+    suma = 0
+    for i in lista:
+        suma += (i - med)**2
+    return suma / len(lista)
+
+def desviacion_estandar(lista):
+    desviacion = math.sqrt(varianza(lista))
+    return round(desviacion, 2)
+
 def mediana(lista):
     n = len(lista)
     sorted_list = sorted(lista)
@@ -145,9 +159,9 @@ def valor_porcentaje(total, valor):
 
 def cal_intervalo(lista):
     lista.sort()
-    rango = max(lista) - min(lista)
+    r = rango(lista)
     num_intervalos = math.ceil(math.sqrt(len(lista)))
-    tam_intervalos = math.ceil(rango / num_intervalos)
+    tam_intervalos = math.ceil(r / num_intervalos)
 
     intervalos = ""
     part1_intervalo = []
@@ -183,7 +197,7 @@ def clean_intervalos(lista):
 
 
 while True:
-    opr = ["mediana", "moda", "media", "porcentaje", "frecuencia absoluta", "frecuencia acumulada", "frecuencia relativa", "intervalo"]
+    opr = ["rango","varianza", "desviacion estandar","mediana", "moda", "media", "porcentaje", "frecuencia absoluta", "frecuencia acumulada", "frecuencia relativa", "intervalo"]
     while True:
         oprUser = input(f"Ingrese la operacion a realizar {opr}: ").lower()
         if oprUser not in opr:
@@ -191,7 +205,7 @@ while True:
         else:
             break
 
-    if oprUser in ["mediana", "moda", "media", "porcentaje", "frecuencia absoluta", "frecuencia acumulada", "frecuencia relativa"]:
+    if oprUser in ["rango", "varianza", "desviacion estandar", "mediana", "moda", "media", "porcentaje", "frecuencia absoluta", "frecuencia acumulada", "frecuencia relativa"]:
         while True:
             lista = input("Ingrese los datos separados por comas p.ej. 1, 2, 3, 4, 5: ")
             try:
@@ -208,6 +222,12 @@ while True:
                     resultado = frecAcum(list_num)
                 elif oprUser == "frecuencia relativa":
                     resultado = frecR(list_num)
+                elif oprUser == "rango":
+                    resultado = rango(list_num)
+                elif oprUser == "varianza":
+                    resultado = varianza(list_num)
+                elif oprUser == "desviacion estandar":
+                    resultado = desviacion_estandar(list_num)
                 print(f"El resultado de la {oprUser} es: {resultado}")
                 break
             except ValueError:

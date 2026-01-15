@@ -1,4 +1,5 @@
 import math
+from collections import Counter
 
 def rango(lista):
     return max(lista) - min(lista)
@@ -24,74 +25,45 @@ def mediana(lista):
         med = sorted_list[mid]
     return med
 
-
 def media(lista):
-    return sum(lista) / len(lista)
-
+    return round(sum(lista) / len(lista), 2)
 
 def moda(lista):
-    frequency = {}
-    for item in lista:
-        if item not in frequency:
-            frequency[item] = 1
-        else:
-            frequency[item] += 1
-    max_freq = max(frequency.values())
-    modes = [key for key, value in frequency.items() if value == max_freq]
-    if len(modes) == len(frequency):
+    frequencyA = frecA(lista)
+    max_freq = max(frequencyA.values())
+    modes = [str(key) for key, value in frequencyA.items() if value == max_freq]
+    if len(modes) == len(frequencyA):
         return None
-    for mode in modes:
-        return mode
+    return " , ".join(modes)
     
+def calcular_frecAcum(dic_frecA):
+    frecuenciaAcum = 0
+    for item in dic_frecA:
+        frecuenciaAcum += dic_frecA[item]
+        dic_frecA[item] = frecuenciaAcum
+    return dic_frecA
+
+def calcular_frecR(dic_frecA):
+    value_total = [dic_frecA[x] for x in dic_frecA]
+    for item in dic_frecA:
+        dic_frecA[item] = porcentaje_neto(value_total, dic_frecA[item])
+    return dic_frecA
 
 def frecA(lista):
-    resultado = ""
-    frequencyA = {}
-    for item in lista:
-        if item not in frequencyA:
-            frequencyA[item] = 1
-        else:
-            frequencyA[item] += 1
-    for item in frequencyA:
-        resultado += f"\n{item} - {frequencyA[item]}"
-    return resultado
-
+    frequencyA = Counter(lista)
+    return frequencyA
 
 def frecAcum(lista):
-    resultado = ""
-    frecuenciaAcum = 0
-    frequencyA = {}
-    for item in lista:
-        if item not in frequencyA:
-            frequencyA[item] = 1
-        else:
-            frequencyA[item] += 1
-    for item in frequencyA:
-        frecuenciaAcum += frequencyA[item]
-        frequencyA[item] = frecuenciaAcum
-    for item in frequencyA:
-        resultado += f"\n{item} -> {frequencyA[item]}"
-    return resultado
-
+    frequencyA = frecA(lista)
+    frequencyAcum = calcular_frecAcum(frequencyA)
+    return frequencyAcum
 
 def frecR(lista):
-    resultado = ""
-    frequencyA = {}
-    for item in lista:
-        if item not in frequencyA:
-            frequencyA[item] = 1
-        else:
-            frequencyA[item] += 1
-    value_total = [frequencyA[x] for x in frequencyA]
-    for item in frequencyA:
-        frequencyA[item] = porcentaje_neto(value_total, frequencyA[item])
-    for item in frequencyA:
-        resultado += f"\n{item} -> {frequencyA[item]}"
-    return resultado
-
+    frequencyA = frecA(lista)
+    frequencyR = calcular_frecR(frequencyA)
+    return frequencyR
 
 def frecA_intervalos(lista, dic_intervalos):
-    resultado = ""
     frequencyA = {}
     for item in dic_intervalos:
         frequencyA[item] = 0
@@ -101,49 +73,18 @@ def frecA_intervalos(lista, dic_intervalos):
             if limite_inicial <= i <= limite_final:
                 frequencyA[item] += 1
                 break     
-    for item in frequencyA:
-        resultado += f"\nLa frecuencia absoluta de {item} es: {frequencyA[item]}"
-    return resultado
-
+    return frequencyA
 
 def frecAcum_intervalos(lista, dic_intervalos):
-    resultado = ""
-    frecuenciaAcum = 0
-    frequencyA = {}
-    for item in dic_intervalos:
-        frequencyA[item] = 0
-    for i in lista:
-        for item in dic_intervalos:
-            limite_inicial, limite_final = dic_intervalos[item]
-            if limite_inicial <= i <= limite_final:
-                frequencyA[item] += 1
-                break     
-    for item in frequencyA:
-        frecuenciaAcum += frequencyA[item]
-        frequencyA[item] = frecuenciaAcum
-    for item in frequencyA:
-        resultado += f"\nLa frecuencia acumulada de {item} es: {frequencyA[item]}"
-    return resultado
+    frequencyA = frecA_intervalos(lista, dic_intervalos)   
+    frequencyAcum = calcular_frecAcum(frequencyA)
+    return frequencyAcum
 
 
 def frecR_intervalos(lista, dic_intervalos):
-    resultado = ""
-    frequencyA = {}
-    for item in dic_intervalos:
-        frequencyA[item] = 0
-    for i in lista:
-        for item in dic_intervalos:
-            limite_inicial, limite_final = dic_intervalos[item]
-            if limite_inicial <= i <= limite_final:
-                frequencyA[item] += 1
-                break     
-    value_total = [frequencyA[x] for x in frequencyA]
-    for item in frequencyA:
-        frequencyA[item] = porcentaje_neto(value_total, frequencyA[item])
-    for item in frequencyA:
-        resultado += f"\nLa frecuencia relativa de {item} es: {frequencyA[item]}%"
-    return resultado
-
+    frequencyA = frecA_intervalos(lista, dic_intervalos)
+    frequencyR = calcular_frecR(frequencyA)
+    return frequencyR
 
 def porcentaje_neto(lista, valor):
     total = sum(lista)
@@ -151,11 +92,9 @@ def porcentaje_neto(lista, valor):
     porcentaje = round(porcentaje, 2)
     return porcentaje
 
-
 def valor_porcentaje(total, valor):
     valorPorcentaje = valor * total / 100
     return valorPorcentaje
-
 
 def cal_intervalo(lista):
     lista.sort()
@@ -187,13 +126,17 @@ def cal_intervalo(lista):
 def clean_intervalos(lista):
     intervalos = {}
     separacion_intervalos = lista.split(",")
-    separacion_intervalos.remove("")
-    ranges_int = [[int(numero) for numero in intervalo.split("-")]for intervalo in separacion_intervalos]
-
+    separacion_intervalos.remove(separacion_intervalos[-1])
+    ranges_int = [[int(float(numero)) for numero in intervalo.split("-")]for intervalo in separacion_intervalos]
     for i in range(len(ranges_int)):
         intervalos[separacion_intervalos[i]] = ranges_int[i]
-
     return intervalos
+
+# lista = input("Ingrese los datos separados por comas p.ej. 1, 2, 3, 4, 5: ")
+# list_num = [float(x) for x in lista.split(",")]
+# intervalos = cal_intervalo(list_num)
+
+# print(intervalos)
 
 
 while True:
@@ -231,7 +174,7 @@ while True:
                 print(f"El resultado de la {oprUser} es: {resultado}")
                 break
             except ValueError:
-                print("Ingrese sus datos en el formato correcto")
+                print("Ingrese los datos en el formato correcto")
             finally: 
                 print()
 
@@ -241,7 +184,7 @@ while True:
                 tipo_porcentaje = input("Ingrese el tipo de porcentaje a calcular (neto/valor): ").lower()
                 if tipo_porcentaje == "neto":
                     list = input("Ingrese los datos separados por comas p.ej. 1, 2, 3, 4, 5: ")
-                    list_num = [float(x) for x in list.split(",")]
+                    list_num = [float(x) for x in lista.split(",")]
                     valor = float(input("Ingrese el valor para calcular el porcentaje neto: "))
                     resultado = porcentaje_neto(list_num, valor)
                     print(f"El porcentaje neto del valor {valor} es: {resultado}%")
@@ -263,7 +206,7 @@ while True:
         while True:
             try:
                 lista = input("Ingrese los datos separados por comas p.ej. 1, 2, 3, 4, 5: ")
-                lista = [int(x) for x in lista.split(",")]
+                lista = [float(x) for x in lista.split(",")]
                 intervalos = cal_intervalo(lista)
                 intervalos = clean_intervalos(intervalos)
 
@@ -287,8 +230,6 @@ while True:
                 break
             except ValueError:
                 print("Ingrese sus datos en el formato correcto")
-            finally:
-                print()
 
     continuar = input("¿Desea realizar otra operacion? (si/no): ").lower()
     if continuar in "no":

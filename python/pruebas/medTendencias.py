@@ -35,7 +35,7 @@ def moda(lista):
     if len(modes) == len(frequencyA):
         return None
     return " , ".join(modes)
-    
+
 def calcular_frecAcum(dic_frecA):
     frecuenciaAcum = 0
     for item in dic_frecA:
@@ -44,7 +44,7 @@ def calcular_frecAcum(dic_frecA):
     return dic_frecA
 
 def calcular_frecR(dic_frecA):
-    value_total = [dic_frecA[x] for x in dic_frecA]
+    value_total = sum([dic_frecA[x] for x in dic_frecA])
     for item in dic_frecA:
         dic_frecA[item] = porcentaje_neto(value_total, dic_frecA[item])
     return dic_frecA
@@ -72,11 +72,11 @@ def frecA_intervalos(lista, dic_intervalos):
             limite_inicial, limite_final = dic_intervalos[item]
             if limite_inicial <= i <= limite_final:
                 frequencyA[item] += 1
-                break     
+                break
     return frequencyA
 
 def frecAcum_intervalos(lista, dic_intervalos):
-    frequencyA = frecA_intervalos(lista, dic_intervalos)   
+    frequencyA = frecA_intervalos(lista, dic_intervalos)
     frequencyAcum = calcular_frecAcum(frequencyA)
     return frequencyAcum
 
@@ -86,8 +86,7 @@ def frecR_intervalos(lista, dic_intervalos):
     frequencyR = calcular_frecR(frequencyA)
     return frequencyR
 
-def porcentaje_neto(lista, valor):
-    total = sum(lista)
+def porcentaje_neto(total, valor):
     porcentaje = valor / total * 100
     porcentaje = round(porcentaje, 2)
     return porcentaje
@@ -118,10 +117,10 @@ def cal_intervalo(lista):
         part2_intervalo.append((limite_final))
 
     for i in range(len(part1_intervalo)):
-         full_intervalo = f"{part1_intervalo[i]} - {part2_intervalo[i]},"
-         intervalos += full_intervalo
-
+        full_intervalo = f"{part1_intervalo[i]} - {part2_intervalo[i]},"
+        intervalos += full_intervalo
     return intervalos
+
 
 def clean_intervalos(lista):
     intervalos = {}
@@ -132,15 +131,60 @@ def clean_intervalos(lista):
         intervalos[separacion_intervalos[i]] = ranges_int[i]
     return intervalos
 
+def presentacion_dicts(dic_normalizado):
+    output = ""
+    dic_value = True
+    for frecuencia, dic_intervalo in dic_normalizado.items():
+        if isinstance(dic_intervalo, dict) and dic_value:
+            intervalos = ""
+            for key, value in dic_intervalo.items():
+                intervalos += f"\n{key}: {value}"
+            dic_intervalo = intervalos
+        else:
+            dic_value = False
+        output += f"{frecuencia}: {dic_intervalo}\n"
+    return output
+
+def normalizar_dicts(dic_frecuencias):
+    return {key: value for key, value in sorted(dic_frecuencias.items())}
+
+def eleccion_funciones(oprUser, dic_funciones, *data):
+    for key, value in dic_funciones.items():
+        if oprUser == key:
+            if len(data) == 1 and isinstance(data[0], (list, tuple)):
+                return value(data[0])
+            else:
+                return value(data[0], data[1])
+
 # lista = input("Ingrese los datos separados por comas p.ej. 1, 2, 3, 4, 5: ")
 # list_num = [float(x) for x in lista.split(",")]
 # intervalos = cal_intervalo(list_num)
-
 # print(intervalos)
 
+opr = ["rango", "varianza", "desviacion estandar", "mediana", "moda", "media", "frecuencia absoluta", "frecuencia acumulada", "frecuencia relativa", "porcentaje", "intervalo"]
+
+opr_dataAislada = {
+    "rango": rango,
+    "varianza": varianza,
+    "desviacion estandar": desviacion_estandar,
+    "mediana": mediana,
+    "moda": moda,
+    "media": media,
+    "frecuencia absoluta": frecA,
+    "frecuencia acumulada": frecAcum,
+    "frecuencia relativa": frecR
+}
+oprs_intervalos_f = {
+    "frecuencia absoluta": frecA_intervalos,
+    "frecuencia acumulada": frecAcum_intervalos,
+    "frecuencia relativa": frecR_intervalos
+}
+opr_porcentaje = {
+    "neto": porcentaje_neto,
+    "valor": valor_porcentaje
+}
 
 while True:
-    opr = ["rango","varianza", "desviacion estandar","mediana", "moda", "media", "porcentaje", "frecuencia absoluta", "frecuencia acumulada", "frecuencia relativa", "intervalo"]
     while True:
         oprUser = input(f"Ingrese la operacion a realizar {opr}: ").lower()
         if oprUser not in opr:
@@ -148,61 +192,37 @@ while True:
         else:
             break
 
-    if oprUser in ["rango", "varianza", "desviacion estandar", "mediana", "moda", "media", "porcentaje", "frecuencia absoluta", "frecuencia acumulada", "frecuencia relativa"]:
+    if oprUser in opr[:-2]:
         while True:
             lista = input("Ingrese los datos separados por comas p.ej. 1, 2, 3, 4, 5: ")
             try:
                 list_num = [float(x) for x in lista.split(",")]
-                if oprUser == "mediana":
-                    resultado = mediana(list_num)
-                elif oprUser == "moda":
-                    resultado = moda(list_num)
-                elif oprUser == "media":
-                    resultado = media(list_num)
-                elif oprUser == "frecuencia absoluta":
-                    resultado = frecA(list_num)
-                elif oprUser == "frecuencia acumulada":
-                    resultado = frecAcum(list_num)
-                elif oprUser == "frecuencia relativa":
-                    resultado = frecR(list_num)
-                elif oprUser == "rango":
-                    resultado = rango(list_num)
-                elif oprUser == "varianza":
-                    resultado = varianza(list_num)
-                elif oprUser == "desviacion estandar":
-                    resultado = desviacion_estandar(list_num)
-                print(f"El resultado de la {oprUser} es: {resultado}")
+                resultado = eleccion_funciones(oprUser, opr_dataAislada, list_num)
+                if "frecuencia" in oprUser:
+                    resultado = presentacion_dicts(normalizar_dicts(resultado))
+                print(f"El resultado de la {oprUser} es: \n{resultado}")
                 break
             except ValueError:
                 print("Ingrese los datos en el formato correcto")
-            finally: 
-                print()
 
     elif oprUser == "porcentaje":
         while True:
             try:
                 tipo_porcentaje = input("Ingrese el tipo de porcentaje a calcular (neto/valor): ").lower()
-                if tipo_porcentaje == "neto":
-                    list = input("Ingrese los datos separados por comas p.ej. 1, 2, 3, 4, 5: ")
-                    list_num = [float(x) for x in lista.split(",")]
-                    valor = float(input("Ingrese el valor para calcular el porcentaje neto: "))
-                    resultado = porcentaje_neto(list_num, valor)
-                    print(f"El porcentaje neto del valor {valor} es: {resultado}%")
-                elif tipo_porcentaje == "valor":
-                    total = float(input("Ingrese el valor total: "))
-                    valor = float(input("Ingrese el porcentaje para calcular el valor: "))
-                    resultado = valor_porcentaje(total, valor)
-                    print(f"El valor correspondiente al {valor}% de {total} es: {resultado}")
-                else:
+                if tipo_porcentaje not in opr_porcentaje.keys():
                     print("Tipo de porcentaje no valido")
                     continue
+                else:
+                    total = int(input("Ingrese el total: "))
+                    valor = int(input("Ingrese el valor o porcentaje: "))
+                    resultado = eleccion_funciones(tipo_porcentaje, opr_porcentaje, total, valor)
+                resultado = presentacion_dicts(resultado)
+                print(f"El resultado de tipo de porcentaje {tipo_porcentaje} es: {resultado}")
                 break
             except ValueError:
                 print("Ingrese un tipo de dato correcto")
-            finally:
-                print()
 
-    elif oprUser == "intervalo":        
+    elif oprUser == "intervalo":
         while True:
             try:
                 lista = input("Ingrese los datos separados por comas p.ej. 1, 2, 3, 4, 5: ")
@@ -210,23 +230,19 @@ while True:
                 intervalos = cal_intervalo(lista)
                 intervalos = clean_intervalos(intervalos)
 
-                perform_frecuencia = input("Que frecuencia desea obtener (frecuencia absoluta/frecuencia acumulada/frecuencia relativa/todas): ")
-                if perform_frecuencia == "frecuencia absoluta":
-                    resultado = frecA_intervalos(lista, intervalos)
-                elif perform_frecuencia == "frecuencia acumulada":
-                    resultado = frecAcum_intervalos(lista, intervalos)
-                elif perform_frecuencia == "frecuencia relativa":
-                    resultado = frecR_intervalos(lista, intervalos)
-                elif perform_frecuencia == "todas":
-                    perform_frecuencia += " las frecuencias"
-                    frecuenciaA = frecA_intervalos(lista, intervalos)
-                    frecuenciaAcum = frecAcum_intervalos(lista, intervalos)
-                    frecuenciaR = frecR_intervalos(lista, intervalos)
-                    resultado = f"{frecuenciaA}\n{frecuenciaAcum}\n{frecuenciaR}\n"
-                else:
+                tipo_frecuencia = input("Que frecuencia desea obtener (frecuencia absoluta/frecuencia acumulada/frecuencia relativa/todas): ")
+                if tipo_frecuencia == "todas":
+                    resultado = {}
+                    for key in oprs_intervalos_f.keys():
+                        resultado[key] = eleccion_funciones(key, oprs_intervalos_f, lista, intervalos)
+                    tipo_frecuencia += " las frecuencias"
+                elif "frecuencia" not in tipo_frecuencia:
                     print("Tipo de frecuencia no valido")
                     continue
-                print(f"El resultado de {perform_frecuencia} es:\n{resultado}")
+                else:
+                    resultado = eleccion_funciones(tipo_frecuencia, oprs_intervalos_f, lista, intervalos)
+                resultado = presentacion_dicts(resultado)
+                print(f"El resultado de {tipo_frecuencia} es:\n{resultado}")
                 break
             except ValueError:
                 print("Ingrese sus datos en el formato correcto")

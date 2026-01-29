@@ -8,3 +8,8 @@ python/learning/
 python/proyectos/
 java/learning/
 assembler/
+**/build/
+**/bin/
+*.o
+*.out
+*.exe

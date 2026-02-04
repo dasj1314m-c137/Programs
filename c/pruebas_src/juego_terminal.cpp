@@ -12,6 +12,7 @@ int size_ancho = 14;
 static int enemies_created = 0;
 // var global estatica que lleva el control de la cant de puntos
 static int cant_puntos = 0;
+static int pts_for_enemy = 0;
 
 // funcion de limpieza completa del buffer
 void buffer_cleaner(void) {
@@ -187,8 +188,83 @@ void player_colP(
     if (entities["player"].x == entities["point"].x && entities["player"].y == entities["point"].y) {
         // si la condicion se cumple eliminamos point
         entities.erase("point");
+        cant_puntos++;
+        pts_for_enemy++;
         // luego de eliminar el antiguo point creamos otro nuevo
         creating_point(entities, board_x_y);
+    }
+}
+
+void insert_enemies_dicts(
+    std::map<std::string, Entity>& entities,
+    std::map<std::string, last_move_Entity>& last_move_entities,
+    std::string clave,
+    int casilla_x,
+    int casilla_y
+)
+{
+    // agregar el nuevo enemigo al diccionario de entities y al de el last_move_entities
+    entities.insert({clave, {'E', casilla_x, casilla_y, 0}});
+    last_move_entities.insert({clave, {casilla_x, casilla_y}});
+    // aumentamos en 1 el num_enemy para indicar que ya se creo uno nuevo
+}
+
+void creating_enemies(
+    std::vector<std::vector<int>>& board_x_y,
+    std::map<std::string, Entity>& entities,
+    std::map<std::string, last_move_Entity>& last_move_entities,
+    int cant_enemies
+)
+{
+    // var del maximo indice porque size devuelve cant no max_indice
+    int max_i = board_x_y.size() - 1;
+    for (int j=0; j < cant_enemies; j++) {
+        // creamos la clave de nuestro enemigo
+        std::string clave = "enemy_" + std::to_string(enemies_created);
+        // limites
+        int lim_borde_inferior = size_alto-1;
+        int lim_borde_derecho = size_ancho-1;
+        // iteramos hasta que obtengamos una coordenada valida
+        while (true) {
+            // var de control que revisa si la casilla esta libre por defecto es true
+            bool casilla_libre = true;
+            // obtener indice aleatorio de las board_x_y para posicionar nuestro enemigo
+            int i = random_movements(entities, max_i, true);
+            // guardamos la casilla_x_y en vars para comparacion mas facil
+            int casilla_x = board_x_y[i][0];
+            int casilla_y = board_x_y[i][1];
+            // revisar que la coordenada no sea un limite
+            if (!(casilla_x == 0 || casilla_y == 0 || casilla_x == lim_borde_derecho || casilla_y == lim_borde_inferior)) {
+                    // iteramos el diccionario de entidades
+                    for (auto& [entidad, data] : entities) {
+                        // compara si las coordenadas son igual a otra entidad
+                        bool x_y_inEntidad = (entities[entidad].x == casilla_x && entities[entidad].y == casilla_y);
+                        if (x_y_inEntidad) {
+                            casilla_libre = false;
+                            break;
+                    }
+                }
+                // si la casilla esta libre agregamos al enemigo
+                if (casilla_libre) {
+                    insert_enemies_dicts(entities, last_move_entities, clave, casilla_x, casilla_y);
+                    // sumamos 1 a la var global que controla el de num_enemy
+                    enemies_created++;
+                    break;
+                }
+            }
+        }
+    }
+}
+
+void aparicion_enemies(
+    std::vector<std::vector<int>>& board_x_y,
+    std::map<std::string, Entity>& entities,
+    std::map<std::string, last_move_Entity>& last_move_entities
+)
+{
+    if (pts_for_enemy != 0 && pts_for_enemy < 31 && pts_for_enemy % 3 == 0) {
+        creating_enemies(board_x_y, entities, last_move_entities, 1);
+        pts_for_enemy = 0;
     }
 }
 
@@ -313,20 +389,6 @@ void dicts_entities(
     };
 }
 
-void insert_enemies_dicts(
-    std::map<std::string, Entity>& entities,
-    std::map<std::string, last_move_Entity>& last_move_entities,
-    std::string clave,
-    int casilla_x,
-    int casilla_y
-)
-{
-    // agregar el nuevo enemigo al diccionario de entities y al de el last_move_entities
-    entities.insert({clave, {'E', casilla_x, casilla_y, 0}});
-    last_move_entities.insert({clave, {casilla_x, casilla_y}});
-    // aumentamos en 1 el num_enemy para indicar que ya se creo uno nuevo
-}
-
 void delete_enemies_dicts(
     std::map<std::string, Entity>& entities,
     std::map<std::string, last_move_Entity>& last_move_entities
@@ -336,53 +398,6 @@ void delete_enemies_dicts(
         std::string clave = "enemy_" + std::to_string(i);
         entities.erase(clave);
         last_move_entities.erase(clave);
-    }
-}
-
-void creating_enemies(
-    std::vector<std::vector<int>>& board_x_y,
-    std::map<std::string, Entity>& entities,
-    std::map<std::string, last_move_Entity>& last_move_entities,
-    int cant_enemies
-)
-{
-    // var del maximo indice porque size devuelve cant no max_indice
-    int max_i = board_x_y.size() - 1;
-    for (int j=0; j < cant_enemies; j++) {
-        // creamos la clave de nuestro enemigo
-        std::string clave = "enemy_" + std::to_string(enemies_created);
-        // limites
-        int lim_borde_inferior = size_alto-1;
-        int lim_borde_derecho = size_ancho-1;
-        // iteramos hasta que obtengamos una coordenada valida
-        while (true) {
-            // var de control que revisa si la casilla esta libre por defecto es true
-            bool casilla_libre = true;
-            // obtener indice aleatorio de las board_x_y para posicionar nuestro enemigo
-            int i = random_movements(entities, max_i, true);
-            // guardamos la casilla_x_y en vars para comparacion mas facil
-            int casilla_x = board_x_y[i][0];
-            int casilla_y = board_x_y[i][1];
-            // revisar que la coordenada no sea un limite
-            if (!(casilla_x == 0 || casilla_y == 0 || casilla_x == lim_borde_derecho || casilla_y == lim_borde_inferior)) {
-                    // iteramos el diccionario de entidades
-                    for (auto& [entidad, data] : entities) {
-                        // compara si las coordenadas son igual a otra entidad
-                        bool x_y_inEntidad = (entities[entidad].x == casilla_x && entities[entidad].y == casilla_y);
-                        if (x_y_inEntidad) {
-                            casilla_libre = false;
-                            break;
-                    }
-                }
-                // si la casilla esta libre agregamos al enemigo
-                if (casilla_libre) {
-                    insert_enemies_dicts(entities, last_move_entities, clave, casilla_x, casilla_y);
-                    // sumamos 1 a la var global que controla el de num_enemy
-                    enemies_created++;
-                    break;
-                }
-            }
-        }
     }
 }
 
@@ -420,7 +435,7 @@ int main(void) {
     std::vector<std::vector<int>> board_x_y = map_board_x_y();
 
     // llamamos la funcion para crear 6 primeros enemigos
-    creating_enemies(board_x_y, entities, last_move_entities, 6);
+    creating_enemies(board_x_y, entities, last_move_entities, 3);
 
     // creamos punto inicial
     creating_point(entities, board_x_y);
@@ -433,14 +448,20 @@ int main(void) {
     // bucle principal donde se repetira el juego en el cual se actualizara cada vez el tablero
     printf("Muevete: w = up, s = down, d = right, a = left\n\n");
     while (play) {
+        // mostrar puntos totales del jugador
+        printf("\nTus puntos son: %d\n\n", cant_puntos);
+
         // reinicio vars control para la var de control del while loop
         bool play_again = true, reset = false;
+
+        // llamamos funcion de parse de coordenadas y lo guardamos en una variable
+        bool map_entities = map_entities_x_y(board_x_y, entities, last_move_entities);
 
         // aplicamos funcion movimientos random de los enemigos
         random_movements(entities, 3, false);
 
-        // llamamos funcion de parse de coordenadas y lo guardamos en una variable
-        bool map_entities = map_entities_x_y(board_x_y, entities, last_move_entities);
+        // llamamos funcion de aparicion de enemies
+        aparicion_enemies(board_x_y, entities, last_move_entities);
 
         // revisamos que el jugador no haya muerto
         if (!map_entities) {
@@ -488,7 +509,7 @@ int main(void) {
         }
         // revisamos si play_again es true y si es reseteamos tablero y entidades
         if (play_again && reset) {
-            reset_game(board_x_y, entities, last_move_entities, 4);
+            reset_game(board_x_y, entities, last_move_entities, 3);
             continue;
         }
     }

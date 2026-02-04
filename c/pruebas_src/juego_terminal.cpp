@@ -55,7 +55,7 @@ std::vector<std::string> map_board(void) {
 }
 
 // funcion que revisa si alguna coordenada del jugador coincide con la de un enemigo
-bool player_col(
+bool player_colE(
     std::map<std::string, Entity>& entities,
     const std::vector<std::vector<int>>& board_x_y
 )
@@ -118,7 +118,7 @@ bool map_entities_x_y(
                     last_move_entities[entidad].x = entities[entidad].x;
                     last_move_entities[entidad].y = entities[entidad].y;
                     // funcion para revisar si las coordenadas de enemigo concuerda con la del player devuelve false si concuerdan y true si no
-                    vivo = player_col(entities, board_x_y);
+                    vivo = player_colE(entities, board_x_y);
                     // revisamos si el valor es false
                     if (!vivo) {
                         // cambiamos simbolo de personaje por una x
@@ -220,7 +220,7 @@ void insert_enemies_dicts(
 }
 
 // funcion para determinar movimientos aleatorios y apariciones de entidades usando sus x_y
-int randomE_movements(
+int random_movements(
     std::map<std::string, Entity>& entities,
     int max_range,
     bool aparicion
@@ -295,7 +295,7 @@ void creating_enemies(
             // var de control que revisa si la casilla esta libre por defecto es true
             bool casilla_libre = true;
             // obtener indice aleatorio de las board_x_y para posicionar nuestro enemigo
-            int i = randomE_movements(entities, max_i, true);
+            int i = random_movements(entities, max_i, true);
             // guardamos la casilla_x_y en vars para comparacion mas facil
             int casilla_x = board_x_y[i][0];
             int casilla_y = board_x_y[i][1];
@@ -339,19 +339,42 @@ void reset_game(
     creating_enemies(board_x_y, entities, last_move_entities, cant_enemies);
 }
 
-void muestreo_tablero_x_y(std::vector<std::vector<int>>& board_x_y) {
-            int length = 0;
-            for (int i=0; i< board_x_y.size(); i++) {
-                if (length == (size_ancho-1)) {
-                    printf("\n");
-                    length = 0;
-                    continue;
-                }
-                std::string x = std::to_string(board_x_y[i][0]);
-                std::string y = std::to_string(board_x_y[i][1]);
-                std::cout << "(" << x <<"," << y << ")";
-                length++;
+void creating_point(
+    std::map<std::string, Entity>& entities,
+    std::vector<std::vector<int>>& board_x_y
+)
+{
+    // maximo indice para poder obtener un indice aleatorio
+    int max_i = board_x_y.size() - 1;
+    // limites
+    int lim_borde_inferior = size_alto-1;
+    int lim_borde_derecho = size_ancho-1;
+    // bucle while hasta que casilla_x_y sea valida y creamos nuestra entidad point
+    while (true) {
+        // var de control para saber si la casilla esta libre por defecto true
+        bool casilla_libre = true;
+        // obtener indice aleatorio para obtener coordenadas de board_x_y
+        int i = random_movements(entities, max_i, true);
+        // obtener la casilla_x_y usando el indice de board_x_y
+        int casilla_x = board_x_y[i][0];
+        int casilla_y = board_x_y[i][1];
+        // revisar si las casilla_x_y son limites y en ese caso no continuar o continuar con el bucle redundante de nuevo el bucle
+        if (casilla_x == 0 || casilla_y == 0 || casilla_x == lim_borde_derecho || casilla_y == lim_borde_inferior) continue;
+        // si no son limites como checamos arriba recorrer la lista de entidades
+        for (auto& [entidad, data] : entities) {
+            // revisar si la casilla_x_y concuerda con alguna entity_x_y
+            if (casilla_x == entities[entidad].x && casilla_y == entities[entidad].y) {
+                // si concuerda cambiamos nuestra var de control a false porque la casilla esta ocupada y salimos en la primera coincidencia
+                casilla_libre = false;
+                break;
             }
+        }
+        // si casilla libre es true creamos nuestra entidad point y salimos del bucle while
+        if (casilla_libre) {
+            entities.insert({"point", {'+', casilla_x, casilla_y, 0}});
+            break;
+        }
+    }
 }
 
 int main(void) {
@@ -371,6 +394,9 @@ int main(void) {
     // llamamos la funcion para crear 6 primeros enemigos
     creating_enemies(board_x_y, entities, last_move_entities, 4);
 
+    // creamos punto inicial
+    creating_point(entities, board_x_y);
+
     // ideas para añadir, antes de limpiar buffer revisar longitu para evitar procesar numeros masivos
 
 
@@ -383,7 +409,7 @@ int main(void) {
         bool play_again = true, reset = false;
 
         // aplicamos funcion movimientos random de los enemigos
-        randomE_movements(entities, 3, false);
+        random_movements(entities, 3, false);
 
         // llamamos funcion de parse de coordenadas y lo guardamos en una variable
         bool map_entities = map_entities_x_y(board_x_y, entities, last_move_entities);

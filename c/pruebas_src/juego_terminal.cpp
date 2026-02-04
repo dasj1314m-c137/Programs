@@ -6,10 +6,12 @@
 
 // datos: tamaño del lado del tablero, simbolo del jugador, coordenadas del jugador.
 int size_alto = 7;
-int size_ancho = 12;
+int size_ancho = 14;
 
-// var global statica que lleva el control del num de enemies
+// var global estatica que lleva el control del num de enemies
 static int enemies_created = 0;
+// var global estatica que lleva el control de la cant de puntos
+static int cant_puntos = 0;
 
 // funcion de limpieza completa del buffer
 void buffer_cleaner(void) {
@@ -54,6 +56,89 @@ std::vector<std::string> map_board(void) {
     return board;
 }
 
+// funcion para determinar movimientos aleatorios y apariciones de entidades usando sus x_y
+int random_movements(
+    std::map<std::string, Entity>& entities,
+    int max_range,
+    bool aparicion
+) {
+    // preparando datos para obtencion de numeros aleatorios
+    static std::random_device rd;
+    static std::mt19937 gen(rd());
+    // recibimos un rango maximo y siempre el rango minimo es 0
+    std::uniform_int_distribution<> distrib(0, max_range);
+
+    // si aparicion es true generar numero aleatorio entre 0 y el rango especificado y retornarlo
+    if (aparicion) return distrib(gen);
+
+    // recorremos nuestras entidades para poder obtener sus valor y claves
+    for (auto& [entidad, data] : entities) {
+        // solo aplicar movimientos aleatorios a entidades que no sean el player
+        if (entidad != "player" && entidad != "point") {
+            // generar numero aleatorio entre 0 y el rango especificado
+            int direccion = distrib(gen);
+            // dependiendo del numero sumamos o restamos a las x_y para cambiar su posicion en 1 coordenada
+            switch (direccion) {
+                case 0:
+                    entities[entidad].x += 1;
+                    break;
+                case 1:
+                    entities[entidad].y -= 1;
+                    break;
+                case 2:
+                    entities[entidad].x -= 1;
+                    break;
+                case 3:
+                    entities[entidad].y += 1;
+                    break;
+                default:
+                    printf("Checa los rangos de la distribucion");
+                    break;
+            }
+        }
+    }
+    return 0;
+}
+
+void creating_point(
+    std::map<std::string, Entity>& entities,
+    const std::vector<std::vector<int>>& board_x_y
+)
+{
+    // maximo indice para poder obtener un indice aleatorio
+    int max_i = board_x_y.size() - 1;
+    // limites
+    int lim_borde_inferior = size_alto-1;
+    int lim_borde_derecho = size_ancho-1;
+    // bucle while hasta que casilla_x_y sea valida y creamos nuestra entidad point
+    while (true) {
+        // var de control para saber si la casilla esta libre por defecto true
+        bool casilla_libre = true;
+        // obtener indice aleatorio para obtener coordenadas de board_x_y
+        int i = random_movements(entities, max_i, true);
+        // obtener la casilla_x_y usando el indice de board_x_y
+        int casilla_x = board_x_y[i][0];
+        int casilla_y = board_x_y[i][1];
+        // revisar si las casilla_x_y son limites y en ese caso no continuar o continuar con el bucle redundante de nuevo el bucle
+        if (casilla_x == 0 || casilla_y == 0 || casilla_x == lim_borde_derecho || casilla_y == lim_borde_inferior) continue;
+        // si no son limites como checamos arriba recorrer la lista de entidades
+        for (auto& [entidad, data] : entities) {
+            // revisar si la casilla_x_y concuerda con alguna entity_x_y
+            if (casilla_x == entities[entidad].x && casilla_y == entities[entidad].y) {
+                // si concuerda cambiamos nuestra var de control a false porque la casilla esta ocupada y salimos en la primera coincidencia
+                casilla_libre = false;
+                break;
+            }
+        }
+        // si casilla libre es true creamos nuestra entidad point y salimos del bucle while
+        if (casilla_libre) {
+            // creamos la entidad point y el indice se lo pasamos a este porque cuando la creamos de nuevo el indice ya se parse para las demas entidades
+            entities.insert({"point", {'+', casilla_x, casilla_y, i}});
+            break;
+        }
+    }
+}
+
 // funcion que revisa si alguna coordenada del jugador coincide con la de un enemigo
 bool player_colE(
     std::map<std::string, Entity>& entities,
@@ -64,9 +149,9 @@ bool player_colE(
     std::string enemigo_borrar = "";
     // recorrer diccionario de entidades
     for (auto& [entidad, data] : entities) {
-        // si la entidad no es player comparamos
-        if (!(entidad == "player")) {
-            // revisamos si las player_x_y son iguales a alguna entities_x_y y si son iguales retornamos false
+        // si la entidad no es player y si no es point comparamos
+        if ((entidad != "player" && entidad != "point")) {
+            // revisamos si las player_x_y son iguales a alguna entities_x_y
             if (entities["player"].x == entities[entidad].x && entities["player"].y == entities[entidad].y) {
                 // recorrer board_x_y para encontrar el indice del encuentro de las coordenadas de la entidad y el player
                 for (int i=0; i < board_x_y.size(); i++) {
@@ -92,6 +177,21 @@ bool player_colE(
     }
 }
 
+// funcion que revisa si alguna coordenada del jugador concuerda con al del point
+void player_colP(
+    std::map<std::string, Entity>& entities,
+    const std::vector<std::vector<int>>& board_x_y
+)
+{
+    // revisamos si el player_x_y son iguales al point_x_y
+    if (entities["player"].x == entities["point"].x && entities["player"].y == entities["point"].y) {
+        // si la condicion se cumple eliminamos point
+        entities.erase("point");
+        // luego de eliminar el antiguo point creamos otro nuevo
+        creating_point(entities, board_x_y);
+    }
+}
+
 // funcion de creacion del tablero revisando coordenadas
 bool map_entities_x_y(
     const std::vector<std::vector<int>>& board_x_y,
@@ -99,7 +199,7 @@ bool map_entities_x_y(
     std::map<std::string, last_move_Entity>& last_move_entities
 )
 {
-    // declaramos var de control del personaje y le damos el valor true
+    // declaramos vars de control del personaje y le damos el valor true
     bool vivo = true;
     // limites
     int lim_borde_inferior = size_alto-1;
@@ -109,32 +209,40 @@ bool map_entities_x_y(
         // recorremos diccionario para obtener las coordenadas de las entidades
         for (auto& [entidad, data] : entities) {
             // condicionales que revisan que la entidad_x_y exista en las board_x_y y que no este en algun limite
-            // condicional que revisa si las player_x_y conciden con alguna casilla
+            // condicional que revisa si las entities conciden con alguna casilla
             if (entities[entidad].x == board_x_y[i][0] && entities[entidad].y == board_x_y[i][1]) {
                 // condicional que actualiza player si player_i no son las misma coordenadas que las de limite
                 if (!(board_x_y[i][0] == 0 || board_x_y[i][1] == 0 || board_x_y[i][0] == lim_borde_derecho || board_x_y[i][1] == lim_borde_inferior)) {
                     entities[entidad].indice = i;
-                    // como no hubo errores actualizamos la var de control del ultimo movimiento del player
-                    last_move_entities[entidad].x = entities[entidad].x;
-                    last_move_entities[entidad].y = entities[entidad].y;
-                    // funcion para revisar si las coordenadas de enemigo concuerda con la del player devuelve false si concuerdan y true si no
-                    vivo = player_colE(entities, board_x_y);
-                    // revisamos si el valor es false
-                    if (!vivo) {
-                        // cambiamos simbolo de personaje por una x
-                        entities["player"].symbol = 'x';
-                        return vivo;
+                    // !!!!revisar que la entidad no sea point porque esta entidad no tiene last_move
+                    if (entidad != "point") {
+                        // como no hubo errores actualizamos la var de control del ultimo movimiento de la entidad
+                        last_move_entities[entidad].x = entities[entidad].x;
+                        last_move_entities[entidad].y = entities[entidad].y;
                     }
                 }
                 // si las player_x_y son las mismas que las de un limite no actualizamos player
                 // igual restablecemos las player_x_y a su ultimo movimiento usando una var de control para que se pueda mover, de nuevo
                 else {
-                    entities[entidad].x = last_move_entities[entidad].x;
-                    entities[entidad].y = last_move_entities[entidad].y;
+                    // !!!!revisar que la entidad no sea point porque esta entidad no tiene last_move
+                    if (entidad != "point") {
+                        entities[entidad].x = last_move_entities[entidad].x;
+                        entities[entidad].y = last_move_entities[entidad].y;
+                    }
                 }
             }
         }
     }
+    // funcion para revisar si las coordenadas de enemigo concuerda con la del player devuelve false si concuerdan y true si no
+    vivo = player_colE(entities, board_x_y);
+    // revisamos si el valor es false
+    if (!vivo) {
+        // cambiamos simbolo de personaje por una x
+        entities["player"].symbol = 'x';
+        return vivo;
+    }
+    // funcion para revisar si las player_x_y son iguales a las de point_x_y
+    player_colP(entities, board_x_y);
     return vivo;
 }
 
@@ -219,50 +327,6 @@ void insert_enemies_dicts(
     // aumentamos en 1 el num_enemy para indicar que ya se creo uno nuevo
 }
 
-// funcion para determinar movimientos aleatorios y apariciones de entidades usando sus x_y
-int random_movements(
-    std::map<std::string, Entity>& entities,
-    int max_range,
-    bool aparicion
-) {
-    // preparando datos para obtencion de numeros aleatorios
-    static std::random_device rd;
-    static std::mt19937 gen(rd());
-    // recibimos un rango maximo y siempre el rango minimo es 0
-    std::uniform_int_distribution<> distrib(0, max_range);
-
-    // si aparicion es true generar numero aleatorio entre 0 y el rango especificado y retornarlo
-    if (aparicion) return distrib(gen);
-
-    // recorremos nuestras entidades para poder obtener sus valor y claves
-    for (auto& [entidad, data] : entities) {
-        // solo aplicar movimientos aleatorios a entidades que no sean el player
-        if (!(entidad == "player")) {
-            // generar numero aleatorio entre 0 y el rango especificado
-            int direccion = distrib(gen);
-            // dependiendo del numero sumamos o restamos a las x_y para cambiar su posicion en 1 coordenada
-            switch (direccion) {
-                case 0:
-                    entities[entidad].x += 1;
-                    break;
-                case 1:
-                    entities[entidad].y -= 1;
-                    break;
-                case 2:
-                    entities[entidad].x -= 1;
-                    break;
-                case 3:
-                    entities[entidad].y += 1;
-                    break;
-                default:
-                    printf("Checa los rangos de la distribucion");
-                    break;
-            }
-        }
-    }
-    return 0;
-}
-
 void delete_enemies_dicts(
     std::map<std::string, Entity>& entities,
     std::map<std::string, last_move_Entity>& last_move_entities
@@ -337,44 +401,8 @@ void reset_game(
     dicts_entities(entities, last_move_entities);
     // llamamos funcion para que cree a los enemigos
     creating_enemies(board_x_y, entities, last_move_entities, cant_enemies);
-}
-
-void creating_point(
-    std::map<std::string, Entity>& entities,
-    std::vector<std::vector<int>>& board_x_y
-)
-{
-    // maximo indice para poder obtener un indice aleatorio
-    int max_i = board_x_y.size() - 1;
-    // limites
-    int lim_borde_inferior = size_alto-1;
-    int lim_borde_derecho = size_ancho-1;
-    // bucle while hasta que casilla_x_y sea valida y creamos nuestra entidad point
-    while (true) {
-        // var de control para saber si la casilla esta libre por defecto true
-        bool casilla_libre = true;
-        // obtener indice aleatorio para obtener coordenadas de board_x_y
-        int i = random_movements(entities, max_i, true);
-        // obtener la casilla_x_y usando el indice de board_x_y
-        int casilla_x = board_x_y[i][0];
-        int casilla_y = board_x_y[i][1];
-        // revisar si las casilla_x_y son limites y en ese caso no continuar o continuar con el bucle redundante de nuevo el bucle
-        if (casilla_x == 0 || casilla_y == 0 || casilla_x == lim_borde_derecho || casilla_y == lim_borde_inferior) continue;
-        // si no son limites como checamos arriba recorrer la lista de entidades
-        for (auto& [entidad, data] : entities) {
-            // revisar si la casilla_x_y concuerda con alguna entity_x_y
-            if (casilla_x == entities[entidad].x && casilla_y == entities[entidad].y) {
-                // si concuerda cambiamos nuestra var de control a false porque la casilla esta ocupada y salimos en la primera coincidencia
-                casilla_libre = false;
-                break;
-            }
-        }
-        // si casilla libre es true creamos nuestra entidad point y salimos del bucle while
-        if (casilla_libre) {
-            entities.insert({"point", {'+', casilla_x, casilla_y, 0}});
-            break;
-        }
-    }
+    // funcion para crear la entidad point
+    creating_point(entities, board_x_y);
 }
 
 int main(void) {
@@ -392,7 +420,7 @@ int main(void) {
     std::vector<std::vector<int>> board_x_y = map_board_x_y();
 
     // llamamos la funcion para crear 6 primeros enemigos
-    creating_enemies(board_x_y, entities, last_move_entities, 4);
+    creating_enemies(board_x_y, entities, last_move_entities, 6);
 
     // creamos punto inicial
     creating_point(entities, board_x_y);

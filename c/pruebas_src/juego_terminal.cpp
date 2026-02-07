@@ -3,6 +3,7 @@
 #include <vector>
 #include <map>
 #include <random>
+#include <ncurses.h>
 
 // datos: tamaño del lado del tablero, simbolo del jugador, coordenadas del jugador.
 int size_alto = 7;
@@ -14,11 +15,31 @@ static int enemies_created = 0;
 static int cant_puntos = 0;
 static int pts_for_enemy = 0;
 
+
+std::pair<int, int> AlignCenter(int x, int y) {
+    int filas, columnas;
+    getmaxyx(stdscr, filas, columnas);
+    int offset_x = (columnas - size_ancho - 15) / 2;
+    int offset_y = (filas - size_alto) / 2;
+
+    return {offset_x + x, offset_y + y};
+}
+
+std::pair<int, int> Align_pts(void) {
+    static std::pair<int, int> center_x_y = AlignCenter(0, 0);
+    static int offset_y = center_x_y.second - 2;
+    return {center_x_y.first, offset_y};
+}
+
+std::pair<int, int> Align_msj(void) {
+    static std::pair<int, int> center_x_y = AlignCenter(0, 0);
+    static int offset_y = center_x_y.second + size_alto + 2;
+    return {center_x_y.first, offset_y};
+}
+
 // funcion de limpieza completa del buffer
 void buffer_cleaner(void) {
-    int c;
-    // obtenemos un char del buffer siempre y cuando no sea un salto de linea o el final de un archivo
-    while ((c = getchar()) != 10 && c != EOF);
+    flushinp();
 }
 
 // crear structura de datos para mis entidades con sus simbolos y coordenadas y tambien para sus ultimos movimientos
@@ -45,13 +66,13 @@ std::vector<std::vector<int>> map_board_x_y(void) {
 }
 
 // funcion que recibe el tamaño del tablero y crea un cuadrado con bordes de '#' y las casillas '.' y regresa el tablero en string
-std::vector<std::string> map_board(void) {
-    std::vector<std::string> board;
+std::vector<char> map_board(void) {
+    std::vector<char> board;
     // crear tablero el bucle exterior controla el numero de filas y el interior los caracteres por fila
     for (int i=1; i <= size_alto; i++) {
         for (int j=1; j <= size_ancho; j++) {
-            if (!(i == 1 || i == size_alto || j == 1 || j == size_ancho)) board.push_back(".");
-            else board.push_back("#");
+            if (!(i == 1 || i == size_alto || j == 1 || j == size_ancho)) board.push_back('.');
+            else board.push_back('#');
         }
     }
     return board;
@@ -100,9 +121,6 @@ int random_movements(
                         entities[entidad].y += 1;
                         break;
                     case 4:
-                        break;
-                    default:
-                        printf("Checa los rangos de la distribucion");
                         break;
                 }
                 // recorrer nuestro dict de entidades para comparar la nueva posicion de la entidad con las demas entidades
@@ -350,48 +368,39 @@ bool map_entities_x_y(
     return vivo;
 }
 
+void addChar_VS(int& x, int& y, char& simbolo) {
+    mvaddch(y, x, simbolo);
+}
+
 // funcion de creacion del tablero revisando coordenadas
-std::string board_creator(
-    const std::vector<std::string>& board,
+void board_creator(
+    std::vector<char>& board,
+    std::vector<std::vector<int>>& board_x_y,
     std::map<std::string, Entity>& entities
 )
 {
-    std::string board_view;
-    // creamos var de control donde controlamos el numero de chars por fila y usar salto de linea
-    int field_length = 1;
-    // bucle para crear el tablero iterando sobre la lista de caracteres que conforma nuestro tablero
-    for (int i=0; i < board.size(); i++) {
-        // var de control para saber si hubo concidencia de indices con entidades con la casilla que iteramos
-        bool not_entity = true;
-        // bucle para iterar sobre nuestro dicts de entidades y revisar si conincide con alguna casilla
-        for (auto& [entidad, data] : entities) {
-            // si el indice de la entidad coincide con el de la casilla agregamos simbolo al tablero en vez de la casilla
-            if (entities[entidad].indice == i) {
-                board_view += entities[entidad].symbol;
-                // var de control que ponemos en false porque si hubo entity en la casilla
-                not_entity = false;
-                // salimos del bucle en la primera coincidencia
-                break;
-            }
-        }
-        // revisamos si la var de control es true, osea no hubo entidad y si es cierto agregamos casilla normal
-        if (not_entity) board_view += board[i];
-        // revisar si la var de control ya es la igual a la longitud del lado del size_map y si es true añadir salto de linea y reiniciar var
-        if (field_length == size_ancho) {
-            board_view += "\n";
-            field_length = 0;
-        }
-        // añadir uno a nuestra var de control para actualizar que agregamos un caracter mas a la fila
-        field_length++;
+    // limpiamos pantalla virtual
+    clear();
+    // recorremos board_x_y para obtener x_y y mediante el contador obtener simbolo
+    for (int i=0; i < board_x_y.size(); i++) {
+        // llamar a funcion para añadir offset hacia el centro
+        std::pair<int, int> center_x_y = AlignCenter(board_x_y[i][0], board_x_y[i][1]);
+        addChar_VS(center_x_y.first, center_x_y.second, board[i]);
     }
-    return board_view;
+    // recorremos entities para obtener sus x_y y tambien su simbolo
+    for (auto& [entidad, data] : entities) {
+        // aplicamos zoom a las entidades
+        std::pair<int, int> center_x_y = AlignCenter(entities[entidad].x, entities[entidad].y);
+        addChar_VS(center_x_y.first, center_x_y.second, entities[entidad].symbol);
+    }
 }
 
 // funcion para preguntar si quiere seguir jugando
-bool continue_game(void) {
-    char continuar;
+bool continue_game(int& x, int& y) {
     // preguntamos y guardamos respuesta en variable
-    printf("Quiere dejar de jugar? (s/n): "); scanf(" %c", &continuar);
+    mvprintw(y, x, "Quiere dejar de jugar? (s/n): ");
+    refresh();
+    char continuar = getch();
     // comparamos el input y si es 's' play_again igual a true en cambio false
     switch (continuar) {
         case 'n':
@@ -453,6 +462,16 @@ void reset_game(
 }
 
 int main(void) {
+    // incializar ncurses
+    initscr();
+    // evitamos que las letras que el usuario escriba se impriman
+    noecho();
+    // permitimos leer letras indmediatamente sin ingresar ENTER
+    cbreak();
+    // ocultamos el cursos poniendo
+    curs_set(0);
+    // habilitamos teclas especiales para evitar errores por si son ingresadas
+    keypad(stdscr, TRUE);
     // vars que controlas la repeticion del juego
     bool play = true;
     // crear diccionario de entidades, su indentificador sera el tipo de entidad y los datos seran la plantilla de la estructura Entity
@@ -463,55 +482,70 @@ int main(void) {
     dicts_entities(entities, last_move_entities);
 
     // llamamos funcion de mapeo del tablero y de mapeo de board_x_y para obtener las casillas y sus coordenadas
-    std::vector<std::string> board = map_board();
+    std::vector<char> board = map_board();
     std::vector<std::vector<int>> board_x_y = map_board_x_y();
 
     // llamamos la funcion para crear 6 primeros enemigos
-    creating_enemies(board_x_y, entities, last_move_entities, 2);
+    creating_enemies(board_x_y, entities, last_move_entities, 3);
 
     // creamos punto inicial
     creating_point(entities, board_x_y);
 
+    // obtener coordendas para los mensajes y para la UI
+    static std::pair<int, int> pts_x_y = Align_pts();
+    static std::pair<int, int> msj_x_y = Align_msj();
+
     // ideas para añadir, antes de limpiar buffer revisar longitu para evitar procesar numeros masivos
-
-
     // zona de debug, para mostrar outputs
 
     // bucle principal donde se repetira el juego en el cual se actualizara cada vez el tablero
-    printf("Muevete: w = up, s = down, d = right, a = left\n\n");
     while (play) {
-        // mostrar puntos totales del jugador
-        printf("\nTus puntos son: %d\n\n", cant_puntos);
-
         // reinicio vars control para la var de control del while loop
         bool play_again = true, reset = false;
 
         // llamamos funcion de parse de coordenadas y lo guardamos en una variable
         bool map_entities = map_entities_x_y(board_x_y, entities, last_move_entities);
 
-        // aplicamos funcion movimientos random de los enemigos
-        random_movements(entities, 4, false);
+        // creamos tablero virtual
+        board_creator(board, board_x_y, entities);
 
-        // llamamos funcion de aparicion de enemies
-        aparicion_enemies(board_x_y, entities, last_move_entities);
+        // mostrar puntos totales del jugador
+        mvprintw(pts_x_y.second, pts_x_y.first, "Puntos: %d", cant_puntos);
 
         // revisamos que el jugador no haya muerto
         if (!map_entities) {
-            std::cout << board_creator(board, entities);
-            printf("MORISTE\n");
+            mvprintw(msj_x_y.second, msj_x_y.first, "MORISTE");
+            refresh();
             // llamamos funcion que revisa las respuesta del usuario y guarda el rdo en la var que controla el while loop
-            play_again = continue_game();
+            play_again = continue_game(msj_x_y.first, msj_x_y.second);
             reset = play_again;
         }
         // si no murio continuamos el juego
         else {
             // mostramos tablero actualizado
-            std::cout << board_creator(board, entities);
+            refresh();
             // pedimos input del movimieto que el jugador quiera hacer w = up, s = down, d = right, l = left
-            char posicion; scanf(" %c", &posicion);
+            char posicion = getch();
             // actualizamos player_x_y segun la posicion a la cual el usuario se dirija usando switch
             switch (posicion) {
                 // dentro cada case usamos la funcion buffer_cleaner para mantener movimiento a una casilla
+                /*!!!!!
+                * MOVIMIENTO CON ROLLBACK (HOBBY / PROTOTIPO)
+                *
+                * Actualmente las entidades se mueven primero y luego se valida su posición.
+                * Si la posición es inválida, se restaura la coordenada anterior desde
+                * `last_moves_entities`.
+                *
+                * ⚠️ IMPORTANTE:
+                * Este enfoque funciona para prototipos, pero NO escala bien.
+                * Si el juego crece (más reglas, efectos, IA, animaciones, eventos),
+                * este sistema puede causar bugs sutiles y estados inconsistentes.
+                *
+                * FUTURO (SI SE ESCALA):
+                * - Cambiar a modelo de "intención de movimiento":
+                *   input → intención (dx, dy) → validación → aplicar movimiento
+                * - Evitar rollback como mecanismo principal.
+                */
                 case 'w':
                     entities["player"].y -= 1;
                     buffer_cleaner();
@@ -531,23 +565,33 @@ int main(void) {
                 // si ingresa otra opcion preguntar si quiere salir del juego
                 default:
                     // llamamos funcion que revisa las respuesta del usuario y guarda el rdo en la var que controla el while loop
-                    play_again = continue_game();
+                    play_again = continue_game(msj_x_y.first, msj_x_y.second);
                     break;
             }
         }
         // revisamos si el jugador alcanzo cierta cantidad de puntos y le felicitamos por su victoria
-        if (cant_puntos == 16) {
-            printf("\nGANASTE\n\n");
+        if (cant_puntos == 25) {
+            mvprintw(msj_x_y.second, msj_x_y.first, "GANASTE");
+            refresh();
             // preguntamos si quiere jugar de nuevo
-            play_again = continue_game();
+            play_again = continue_game(msj_x_y.first, msj_x_y.second);
             reset = play_again;
         }
         // revisamos si play_again es true y si es salimosss
-        if (!play_again) break;
+        if (!play_again) {
+            endwin();
+            break;
+        }
         // revisamos si play_again es true y si es reseteamos tablero y entidades
         if (play_again && reset) {
-            reset_game(board_x_y, entities, last_move_entities, 2);
+            reset_game(board_x_y, entities, last_move_entities, 3);
             continue;
         }
+
+        // aplicamos funcion movimientos random de los enemigos
+        random_movements(entities, 4, false);
+
+        // llamamos funcion de aparicion de enemies
+        aparicion_enemies(board_x_y, entities, last_move_entities);
     }
 }

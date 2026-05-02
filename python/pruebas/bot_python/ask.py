@@ -1,9 +1,11 @@
+import render
+
 def questionSN(question):
     while True:
         responseSN = ""
-        responseSN = input(question + " (Si/No) ").lower()
+        responseSN = render.smooth_input(question + " (Si/No) ").lower()
         if responseSN != "si" and responseSN != "no":
-            print("Por favor, responde con 'Si' o 'No'.")
+            render.smooth_print("Por favor, responde con 'Si' o 'No'.")
             continue
         elif responseSN == "no":
             return False
@@ -12,9 +14,9 @@ def questionSN(question):
 
 def open_question(question):
     while True:
-        open_response = input(question)
+        open_response = render.smooth_input(question)
         if not isinstance(open_response, str) or not open_response:
-            print("Por favor, escribe una respuesta válida.")
+            render.smooth_print("Por favor, escribe una respuesta válida.")
             continue
         else:
             return open_response

@@ -1,24 +1,24 @@
 import ask
 import write_files
 import time
+import random
 
 def show_match(matches, path):
     if not matches:
-        print("No hay coincidencias")
+        smooth_print("No hay coincidencias")
         add_response = ask.questionSN("Quieres añadir otra posible respuesta?")
         if add_response:
-            new_pattern = input("Escribe la nueva etiqueta: ")
-            new_response = input("Escribe la nueva respuesta: ")
+            new_pattern = smooth_input("Escribe la nueva etiqueta: ")
+            new_response = smooth_input("Escribe la nueva respuesta: ")
             write_files.add_response(path, new_pattern, new_response)
     else:
-        print(matches.strip())
+        smooth_print(matches)
 
 def smooth_print(txt):
     for char in txt:
         print(char, end="", flush=True)
-        time.sleep(0.05)
-    print()
+        time.sleep(random.uniform(0.02, 0.06))
 
 def smooth_input(txt):
-    smooth_print(txt)
+    smooth_print("\n" + txt)
     return input()

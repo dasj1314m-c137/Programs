@@ -18,7 +18,8 @@ def smooth_print(txt):
     for char in txt:
         print(char, end="", flush=True)
         time.sleep(random.uniform(0.02, 0.06))
+    print()
 
 def smooth_input(txt):
-    smooth_print("\n" + txt)
+    smooth_print(txt)
     return input()

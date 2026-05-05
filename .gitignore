@@ -12,5 +12,4 @@ assembler/
 **bin/
 *.o
 *.out
-*.exe
-responses/
+data/

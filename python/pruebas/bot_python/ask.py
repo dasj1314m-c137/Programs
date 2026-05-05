@@ -20,3 +20,20 @@ def open_question(question):
             continue
         else:
             return open_response
+
+def select_option(options):
+    while True:
+        render.smooth_print("Lista:")
+        for i, option in enumerate(options, 1):
+            render.smooth_print(f"{i}. {option}")
+        select = questionSN("¿Quieres seleccionar una opción?")
+        if not select:
+            return False
+        try:
+            choice = int(render.smooth_input("Ingresa el número de tu elección: "))
+            if 1 <= choice <= len(options):
+                return choice - 1 # Devuelve el índice de la opción seleccionada
+            else:
+                render.smooth_print("Número fuera de rango. Intenta nuevamente.")
+        except ValueError:
+            render.smooth_print("Entrada no válida. Por favor, ingresa un número.")

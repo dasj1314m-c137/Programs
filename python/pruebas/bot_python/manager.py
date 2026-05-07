@@ -115,7 +115,7 @@ def dues_manager(action):
             return None
         render.smooth_print("¿Qué quieres hacer?")
         act = ask.select_option(["Agregar pendiente", "Eliminar pendiente"], ask_select=False)
-        if not act:
+        if act is None:
             return None
         if act == 0:
             add_due(action)

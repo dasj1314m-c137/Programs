@@ -31,11 +31,10 @@ def select_option(options, ask_select=True):
             if not select:
                 return False
         try:
-            choice = (render.smooth_input("Ingresa el número de tu elección o ingresa 'exit' para salir: "))
+            choice = render.smooth_input("Ingresa el número de tu elección o ingresa 'exit' para salir: ")
             if choice.lower() == 'exit':
-                return False
-            else:
-                choice = int(choice)
+                return None
+            choice = int(choice)
             if 1 <= choice <= len(options):
                 return choice - 1 # Devuelve el índice de la opción seleccionada
             else:

@@ -80,7 +80,7 @@ def add_due(action):
     title_due = ask.open_question("Escribe titulo del pendiente que quieres agregar: ").replace(",", "")
     date_due = ask.open_question("Escribe fecha del pendiente que quieres agregar (Dia, 00, Mes): ")
     content_due = ask.open_question("Escribe contenido del pendiente que quieres agregar: ")
-    link_due = utils.linkHeading_md(title_due, name_file)
+    link_due = utils.linkHeading_md(name_file, title_due)
     link_due = link_due + " " + date_due
     new_due = f"## {title_due}\n{content_due}"
     write_files.wadd_file(path_file, new_due)

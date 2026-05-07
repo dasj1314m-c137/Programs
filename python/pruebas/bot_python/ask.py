@@ -15,22 +15,27 @@ def questionSN(question):
 def open_question(question):
     while True:
         open_response = render.smooth_input(question)
-        if not isinstance(open_response, str) or not open_response:
-            render.smooth_print("Por favor, escribe una respuesta válida.")
+        if not open_response.strip():
+            render.smooth_print("Por favor, ingresa una respuesta válida.")
             continue
         else:
             return open_response
 
-def select_option(options):
+def select_option(options, ask_select=True):
     while True:
         render.smooth_print("Lista:")
         for i, option in enumerate(options, 1):
             render.smooth_print(f"{i}. {option}")
-        select = questionSN("¿Quieres seleccionar una opción?")
-        if not select:
-            return False
+        if ask_select:
+            select = questionSN("¿Quieres seleccionar una opción?")
+            if not select:
+                return False
         try:
-            choice = int(render.smooth_input("Ingresa el número de tu elección: "))
+            choice = (render.smooth_input("Ingresa el número de tu elección o ingresa 'exit' para salir: "))
+            if choice.lower() == 'exit':
+                return False
+            else:
+                choice = int(choice)
             if 1 <= choice <= len(options):
                 return choice - 1 # Devuelve el índice de la opción seleccionada
             else:

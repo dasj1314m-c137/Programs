@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 def search_p(line, pattern):
     responses = line.split("|", 1)
@@ -29,6 +30,7 @@ def getMD_block(path, heading):
         for line in f:
             if line.startswith("## " + heading):
                 block = []
+                block.append(line)
                 for line in f:
                     if line.startswith("## "):
                         break
@@ -45,6 +47,23 @@ def get_json_value(path, key1, key2):
         data = json.load(f)
     return data[key1][key2]
 
+def locate_get_file(main_path, filename):
+    main_path = Path(main_path)
+    for path in main_path.rglob(filename):
+        return path
+    return False
+
+def locate_files_suffix(main_path, suffix):
+    main_path = Path(main_path)
+    files = []
+    for path in main_path.rglob(f"*{suffix}"):
+        files.append(path)
+    for file in files:
+        file_name = file.stem
+        file_name = file_name.split(".")[0]
+        files[files.index(file)] = file_name
+    return files
+
 if __name__ == "__main__":
-    clean = getNH_md("[[Recursos Socioemocional#Triptico Infografia Tabla]] miercoles 6 mayo")
-    print(clean)
+    file = locate_files_suffix("/home/dasj/documents/works/obsidian_vault/dues", ".md")
+    print(file)

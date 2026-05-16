@@ -12,33 +12,32 @@ def match_response(action):
     return True
 
 def writing_files(action):
-    response = ask.questionSN(action["prompt"])
-    if response:
-        d = date.today()
-        writing = ask.open_question("Escribe: ")
-        if writing == "exit":
-            return None
-        write_files.wadd_file(action["path"], str(d) + "\n" + writing)
-        return True
+    d = date.today()
+    writing = ask.open_question("Escribe: ")
+    if writing == "exit":
+        return None
+    write_files.wadd_file(action["path"], str(d) + "\n" + writing)
+    return True
 
 def duesMD_render(action):
-    dues = ask.questionSN("¿Quieres ver tus pendientes?")
-    if dues:
-        render.smooth_print(action["prompt"])
-        choice = list_dues(action["path"])
-        if choice is None:
-            return None
-        path = search.locate_get_file("/home/dasj/documents/works/obsidian_vault/dues/", choice[1][0])
-        content = search.getMD_block(path, choice[1][1])
-        render.smooth_print(choice[1][2].strip() + "\n" + content.strip())
+    render.smooth_print("Tus pendientes son: ")
+    choice = list_dues(action["path"], True)
+    if choice is None:
+        return None
+    # estructura del choice: (all, [file.md, heading, date]) p.ej.
+    # ('recursos_socioemocionales Triptico Infografia Tabla  miercoles 6 mayo', ['recursos_socioemocionales.md', 'Triptico Infografia Tabla', ' miercoles 6 mayo'])
+    path = search.locate_get_file("/home/dasj/documents/works/obsidian_vault/dues/", choice[1][0])
+    content = search.getMD_block(path, choice[1][1])
+    render.smooth_print(choice[1][2].strip() + "\n" + content.strip())
+    return None
 
-def list_dues(path):
+def list_dues(path, ask_select):
     with open(path, 'r') as f:
         tasks = {}
         for line in f:
             key, value = search.getNH_md(line.strip())
             tasks[key] = value
-        choice = ask.select_option(list(tasks.keys()), ask_select=False)
+        choice = ask.select_option(list(tasks.keys()), ask_select=ask_select)
         if choice is False:
             return None
         choice = utils.dic_index(tasks, choice)
@@ -51,6 +50,8 @@ def daily_check():
         data["metadata"]["last_update"] = today
         for key in data["daily_status"]:
             data["daily_status"][key] = False
+        for key in data["times_asked"]:
+            data["times_asked"][key] = 0
         utils.save_json_data("data/data.json", data)
 
 def check_status_json(func, action):
@@ -58,39 +59,50 @@ def check_status_json(func, action):
     if status:
         return None
     else:
-        result = func()
-        if result is None:
-            return None
-        write_files.set_var_json("data/data.json", "daily_status", action["json_key"], True)
+        if action["dir_question"]:
+            func()
+            write_files.set_var_json("data/data.json", "daily_status", action["json_key"], True)
+        else:
+            execute = ask.questionSN(action["prompt"])
+            write_files.add_counter_json("data/data.json", "times_asked", "daily_status", action["json_key"])
+            if execute:
+                func()
 
 def add_due(action):
     while True:
-        name_file = ask.open_question("Escribe nombre del archivo donde quieres agregar el pendiente: ")
-        path_file = search.locate_get_file("/home/dasj/documents/works/obsidian_vault/dues/", name_file + ".md")
-        if not path_file:
-            render.smooth_print("Archivo no encontrado.")
-            files = search.locate_files_suffix("/home/dasj/documents/works/obsidian_vault/dues/", ".md")
-            render.smooth_print("Estos son los archivos disponibles: ")
-            for file in files:
-                if file == "dues":
-                    continue
-                render.smooth_print(f"- {file}")
-            continue
-        break
-    title_due = ask.open_question("Escribe titulo del pendiente que quieres agregar: ").replace(",", "")
-    date_due = ask.open_question("Escribe fecha del pendiente que quieres agregar (Dia, 00, Mes): ")
-    content_due = ask.open_question("Escribe contenido del pendiente que quieres agregar: ")
-    link_due = utils.linkHeading_md(name_file, title_due)
-    link_due = link_due + " " + date_due
-    new_due = f"## {title_due}\n{content_due}"
-    write_files.wadd_file(path_file, new_due)
-    write_files.wadd_file(action["path"], link_due)
-    render.smooth_print("Pendiente agregado exitosamente.")
+        while True:
+            name_file = ask.open_question("Escribe nombre del archivo donde quieres agregar el pendiente: ")
+            path_file = search.locate_get_file("/home/dasj/documents/works/obsidian_vault/dues/", name_file + ".md")
+            if not path_file:
+                render.smooth_print("Archivo no encontrado.")
+                files = search.locate_files_suffix("/home/dasj/documents/works/obsidian_vault/dues/", ".md")
+                render.smooth_print("Estos son los archivos disponibles: ")
+                for file in files:
+                    if file == "dues":
+                        continue
+                    render.smooth_print(f"- {file}")
+                continue
+            break
+        title_due = ask.open_question("Escribe titulo del pendiente que quieres agregar: ").replace(",", "")
+        date_due = ask.open_question("Escribe fecha del pendiente que quieres agregar (Dia, 00, Mes): ")
+        content_due = ask.open_question("Escribe contenido del pendiente que quieres agregar: ")
+        link_due = utils.linkHeading_md(name_file, title_due)
+        link_due = link_due + " " + date_due
+        new_due = f"## {title_due}\n{content_due}"
+        complete_add = ask.questionSN(f"¿Quieres agregar el pendiente '{title_due}' al archivo '{name_file}.md'?")
+        if not complete_add:
+            return None
+        write_files.wadd_file(path_file, new_due)
+        write_files.wadd_file(action["path"], link_due)
+        render.smooth_print("Pendiente agregado exitosamente.")
+        another = ask.questionSN("¿Quieres agregar otro pendiente?")
+        if not another:
+            return None
 
 def rm_due(action):
     while True:
         render.smooth_print("Selecciona el pendiente que quieres eliminar: ")
-        choice = list_dues(action["path"])
+        choice = list_dues(action["path"], False)
         if choice is None:
             return None
         # estructura del choice: (all, [file.md, heading, date]) p.ej.
@@ -106,18 +118,40 @@ def rm_due(action):
             render.smooth_print("Sin coincidencias en el archivo del pendiente o en el archivo de links")
             return None
         render.smooth_print("Pendiente eliminado exitosamente.")
-        return True
+        another = ask.questionSN("¿Quieres eliminar otro pendiente?")
+        if not another:
+            return None
 
 def dues_manager(action):
+    render.smooth_print("¿Qué quieres hacer?")
+    act = ask.select_option(["Agregar pendiente", "Eliminar pendiente"], ask_select=False)
+    if act is None:
+        return None
+    if act == 0:
+        add_due(action)
+    elif act == 1:
+        rm_due(action)
+
+def terminal_listening(actions):
+    funcs = ["exit", "write_day", "show_dues", "modify_dues", "help"]
     while True:
-        do_act = ask.questionSN(action["prompt"])
-        if not do_act:
-            return None
-        render.smooth_print("¿Qué quieres hacer?")
-        act = ask.select_option(["Agregar pendiente", "Eliminar pendiente"], ask_select=False)
-        if act is None:
-            return None
-        if act == 0:
-            add_due(action)
-        elif act == 1:
-            rm_due(action)
+        standard_input = input("dasj: ")
+        if standard_input in funcs:
+            if standard_input == "exit":
+                render.smooth_print("Saliendo...")
+                break
+            elif standard_input == "help":
+                render.smooth_print("Comandos posibles")
+                utils.list_view(funcs)
+                continue
+            elif standard_input == "write_day":
+                writing_files(actions["write_day"])
+            elif standard_input == "show_dues":
+                duesMD_render(actions["show_dues"])
+            elif standard_input == "modify_dues":
+                dues_manager(actions["modify_dues"])
+        else:
+            render.smooth_print("Comando no reconocido.")
+
+def actions_question(action):
+    check_status_json(lambda: action["func"](action), action)

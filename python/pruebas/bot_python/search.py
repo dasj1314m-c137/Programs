@@ -21,7 +21,7 @@ def getNH_md(content):
     content = content.replace(",", "", 3)
     content = content.replace("#", ",")
     content = content.split(",")
-    key = " ".join(content)
+    key = "-".join(content)
     content[0] = f"{content[0]}.md"
     return key, content
 

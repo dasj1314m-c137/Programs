@@ -17,6 +17,16 @@ def set_var_json(path, key1, key2, value):
     data[key1][key2] = value
     utils.save_json_data(path, data)
 
+def add_counter_json(path, counter_key, status_key, key):
+    with open(path, 'r') as f:
+        data = json.load(f)
+    if data[counter_key][key] < 3:
+        data[counter_key][key] += 1
+    if data[counter_key][key] >= 3:
+        data[status_key][key] = True
+        data[counter_key][key] = 0
+    utils.save_json_data(path, data)
+
 def rm_MD_block(path, heading, delimiter="## "):
     path = Path(path)
     tmp_path = path.with_suffix('.tmp')

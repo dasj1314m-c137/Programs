@@ -514,7 +514,7 @@ int main(void) {
 
         // revisamos que el jugador no haya muerto
         if (!map_entities) {
-            mvprintw(msj_x_y.second, msj_x_y.first, "MORISTE");
+            mvprintw(pts_x_y.second, pts_x_y.first, "MORISTE");
             refresh();
             // llamamos funcion que revisa las respuesta del usuario y guarda el rdo en la var que controla el while loop
             play_again = continue_game(msj_x_y.first, msj_x_y.second);
@@ -571,7 +571,7 @@ int main(void) {
         }
         // revisamos si el jugador alcanzo cierta cantidad de puntos y le felicitamos por su victoria
         if (cant_puntos == 25) {
-            mvprintw(msj_x_y.second, msj_x_y.first, "GANASTE");
+            mvprintw(pts_x_y.second, pts_x_y.first, "GANASTE");
             refresh();
             // preguntamos si quiere jugar de nuevo
             play_again = continue_game(msj_x_y.first, msj_x_y.second);

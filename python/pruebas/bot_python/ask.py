@@ -25,7 +25,7 @@ def select_option(options, ask_select=True):
     while True:
         render.smooth_print("Lista:")
         for i, option in enumerate(options, 1):
-            render.smooth_print(f"{i}. {option}")
+            print(f"{i}. {option}")
         if ask_select:
             select = questionSN("¿Quieres seleccionar una opción?")
             if not select:

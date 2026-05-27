@@ -2,8 +2,10 @@ import render
 
 def questionSN(question):
     while True:
-        responseSN = ""
-        responseSN = render.smooth_input(question + " (Si/No) ").lower()
+        responseSN = render.smooth_input(question + " (Si/No) ")
+        if responseSN is None:
+            return False
+        responseSN = responseSN.lower()
         if responseSN != "si" and responseSN != "no":
             render.smooth_print("Por favor, responde con 'Si' o 'No'.")
             continue
@@ -14,7 +16,9 @@ def questionSN(question):
 
 def open_question(question):
     while True:
-        open_response = render.smooth_input(question)
+        open_response = input(question)
+        if open_response is None:
+            return "exit"
         if not open_response.strip():
             render.smooth_print("Por favor, ingresa una respuesta válida.")
             continue
@@ -32,7 +36,7 @@ def select_option(options, ask_select=True):
                 return False
         try:
             choice = render.smooth_input("Ingresa el número de tu elección o ingresa 'exit' para salir: ")
-            if choice.lower() == 'exit':
+            if choice is None or choice.lower() == 'exit':
                 return None
             choice = int(choice)
             if 1 <= choice <= len(options):

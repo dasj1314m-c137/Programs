@@ -21,5 +21,9 @@ def smooth_print(txt):
     print()
 
 def smooth_input(txt):
-    smooth_print(txt)
-    return input()
+    print(txt)
+    try:
+        return input()
+    except KeyboardInterrupt:
+        print()
+        return None

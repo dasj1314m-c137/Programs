@@ -63,7 +63,3 @@ def locate_files_suffix(main_path, suffix):
         file_name = file_name.split(".")[0]
         files[files.index(file)] = file_name
     return files
-
-if __name__ == "__main__":
-    file = locate_files_suffix("/home/dasj/documents/works/obsidian_vault/dues", ".md")
-    print(file)

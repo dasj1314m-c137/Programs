@@ -77,9 +77,9 @@ def check_status_json(action):
             write_files.set_var_json("data/data.json", "daily_status", action["json_key"], True)
         else:
             path = check_actions_path(action)
-            resolve_action_path(action)
             if not path:
                 return None
+            resolve_action_path(action)
             execute = ask.questionSN(action["prompt"])
             write_files.add_counter_json("data/data.json", "times_asked", "daily_status", action["json_key"])
             if execute:

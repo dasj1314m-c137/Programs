@@ -11,22 +11,28 @@ actions = {
         "dir_question": True
     },
     "write_day": {
+        "name": "Diario",
         "prompt": "¿Quieres escribir tu dia? ",
-        "path": r"/home/dasj/documents/works/obsidian_vault/diary/may.md",
+        "path": "diary",
+        "path_file": True,
         "json_key": "day_written",
         "func": mg.writing_files,
         "dir_question": False
     },
     "show_dues": {
+        "name": "Pendientes",
         "prompt": "¿Quieres revisar tus pendientes? ",
-        "path": r"/home/dasj/documents/works/obsidian_vault/dues/dues.md",
+        "path": "dues_file",
+        "path_file": True,
         "json_key": "dues_shown",
         "func": mg.duesMD_render,
         "dir_question": False
     },
     "modify_dues": {
+        "name": "Pendientes",
         "prompt": "¿Quieres agregar o eliminar un pendiente? ",
-        "path": r"/home/dasj/documents/works/obsidian_vault/dues/dues.md",
+        "path": "dues_dir",
+        "path_file": False,
         "json_key": "dues_modified",
         "func": mg.dues_manager,
         "dir_question": False
@@ -35,10 +41,10 @@ actions = {
 
 def main():
     mg.daily_check()
-    mg.check_status_json(lambda: mg.match_response(actions["mood"]), actions["mood"])
-    mg.actions_question(actions["show_dues"])
-    mg.actions_question(actions["modify_dues"])
-    mg.actions_question(actions["write_day"])
+    mg.check_status_json(actions["mood"])
+    mg.check_status_json(actions["show_dues"])
+    mg.check_status_json(actions["modify_dues"])
+    mg.check_status_json(actions["write_day"])
     mg.terminal_listening(actions)
 
 main()

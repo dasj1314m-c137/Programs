@@ -13,7 +13,7 @@ def read_p(path, pattern):
         for line in f:
             answer = search_p(line, pattern)
             if answer:
-                return answer
+                return answer.strip()
         return False
 
 def getNH_md(content):
@@ -26,7 +26,12 @@ def getNH_md(content):
     return key, content
 
 def getMD_block(path, heading):
-    with open(path, 'r') as f:
+    if not path:
+        return None
+    p = Path(path)
+    if not p.exists():
+        return None
+    with open(p, 'r') as f:
         for line in f:
             if line.startswith("## " + heading):
                 block = []
@@ -51,7 +56,7 @@ def locate_get_file(main_path, filename):
     main_path = Path(main_path)
     for path in main_path.rglob(filename):
         return path
-    return False
+    return None
 
 def locate_files_suffix(main_path, suffix):
     main_path = Path(main_path)

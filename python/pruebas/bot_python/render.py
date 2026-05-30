@@ -69,29 +69,6 @@ def smooth_print(txt: str):
     _page.update()
 
 # ============================================================================
-# FUNCIÓN: smooth_input → DIALOGO INTEGRADO PARA ENTRADA DE TEXTO
-# ============================================================================
-async def smooth_input(txt: str):
-    # """
-    # Reemplaza al antiguo input() de terminal.
-    # Ahora muestra un campo de entrada integrado en la ventana principal (no un diálogo).
-
-    # Esta función es ASYNC porque debe esperar a que el usuario
-    # interactúe con el campo. Úsala con 'await'.
-
-    # Ejemplo en manager.py:
-    #     respuesta = await render.smooth_input("¿Tu nombre? ")
-
-    # Args:
-    #     txt: El texto/pregunta a mostrar antes del campo de entrada
-
-    # Returns:
-    #     str: El texto ingresado por el usuario, o None si cancela
-    # """
-    # Usar la nueva función de chat integrado
-    return await smooth_chat_input(txt)
-
-# ============================================================================
 # FUNCIÓN: show_match → MUESTRA RESULTADOS EN LA GUI
 # ============================================================================
 async def show_match(matches, path):
@@ -115,10 +92,10 @@ async def show_match(matches, path):
         add_response = await ask.questionSN("¿Quieres añadir otra posible respuesta?")
         if add_response:
             # Solicitar la nueva etiqueta
-            new_pattern = await smooth_input("Escribe la nueva etiqueta: ")
+            new_pattern = await smooth_chat_input("Escribe la nueva etiqueta: ")
             # Si el usuario no canceló, solicitar la respuesta
             if new_pattern:
-                new_response = await smooth_input("Escribe la nueva respuesta: ")
+                new_response = await smooth_chat_input("Escribe la nueva respuesta: ")
                 # Si el usuario no canceló, guardar en el archivo
                 if new_response:
                     write_files.add_response(path, new_pattern, new_response)

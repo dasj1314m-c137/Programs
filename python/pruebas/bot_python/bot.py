@@ -1,4 +1,6 @@
 import manager as mg
+import flet as ft
+import render
 
 acts = ["Leer", "Entrenar box", "Meditar", "Editar videos", "Programar", "Escribir", "Aburrirse", "Jugar ajedrez", "Aprender"]
 
@@ -39,12 +41,30 @@ actions = {
     }
 }
 
-def main():
-    mg.daily_check()
-    mg.check_status_json(actions["mood"])
-    mg.check_status_json(actions["show_dues"])
-    mg.check_status_json(actions["modify_dues"])
-    mg.check_status_json(actions["write_day"])
-    mg.terminal_listening(actions)
+async def main(page: ft.Page):
 
-main()
+    page.title = "Bot"
+    page.window_width = 1200
+    page.window_height = 700
+    page.window_resizable = True
+    page.vertical_alignment = ft.MainAxisAlignment.START
+
+    # 2. Creamos un contenedor de texto que simulará nuestra "Terminal Visual"
+    # Aquí es a donde mandaremos los prints en la Fase 2
+    terminal_output = ft.Column(scroll=ft.ScrollMode.ADAPTIVE, expand=True)
+    render.init_render(page, terminal_output) # Inicializamos render con la página y el widget de salida
+
+    # No agregamos el contenedor aquí, lo hacemos en main_menu para construir
+    # una vista dividida con dos secciones (mensajes y opciones).
+
+    # Mostrar menú principal con botones (reemplaza terminal_listening)
+    await mg.main_menu(page, actions, terminal_output)
+
+    mg.daily_check() # Verificar si es un nuevo día y resetear estados si es necesario
+    await mg.check_status_json(actions["mood"])
+    await mg.check_status_json(actions["show_dues"])
+    await mg.check_status_json(actions["modify_dues"])
+    await mg.check_status_json(actions["write_day"])
+
+if __name__ == "__main__":
+    ft.run(main)

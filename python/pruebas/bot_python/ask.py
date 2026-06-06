@@ -55,7 +55,7 @@ async def open_question(question):
 # ============================================================================
 # FUNCIÓN: select_option → SELECCIONA DE UNA LISTA EN DIÁLOGO
 # ============================================================================
-async def select_option(options, ask_select=True):
+async def select_option(options, obj_message):
     # """
     # Permite al usuario seleccionar una opción de una lista.
 
@@ -74,15 +74,13 @@ async def select_option(options, ask_select=True):
     #          False si cancela el ask_select inicial,
     #          None si cancela la selección
     # """
+
     page = _get_page()
 
     # Si no se inicializó render
     if page is None:
-        print(f"[ERROR] Flet no inicializado. Opciones: {options}")
+        print("[ERROR] Flet no inicializado.")
         return None
-
-    # Mostrar la lista de opciones en la salida de render
-    render.smooth_print("Lista:")
 
     # NUEVA LÓGICA: siempre mostramos un selector integrado en la ventana
     # El usuario puede seleccionar una opción y luego "Aceptar" o
@@ -152,17 +150,30 @@ async def select_option(options, ask_select=True):
         render._page.update()
         dialog_closed.set()
 
-    accept_btn = ft.ElevatedButton(content=ft.Text("Aceptar"), on_click=on_accept)
-    cancel_btn = ft.ElevatedButton(content=ft.Text("Cancelar"), on_click=on_cancel)
+    msj_title = ft.Text(
+        value=obj_message.get_select_msj(),
+        size=16,
+        color=ft.Colors.GREEN_ACCENT
+    )
 
-    actions_row = ft.Row(controls=[accept_btn, cancel_btn], spacing=8)
+    accept_btn = ft.ElevatedButton(
+        content=ft.Text("Aceptar"),
+        on_click=on_accept,
+        style=ft.ButtonStyle(bgcolor=ft.Colors.BLACK, color=ft.Colors.GREEN_ACCENT)
+        )
+    cancel_btn = ft.ElevatedButton(
+        content=ft.Text("Cancelar"),
+        on_click=on_cancel,
+        style=ft.ButtonStyle(bgcolor=ft.Colors.BLACK, color=ft.Colors.GREEN_ACCENT)
+        )
+
+    actions_row = ft.Row(controls=[accept_btn, cancel_btn], spacing=8, alignment=ft.MainAxisAlignment.CENTER)
 
     # Bloque que contiene opciones y acciones (para remover de una vez)
     selection_block = ft.Card(
         content=ft.Container(
-            content=ft.Column(controls=[radio_group, actions_row], spacing=10),
+            content=ft.Column(controls=[msj_title, radio_group, actions_row], spacing=10),
             padding=10,
-            width=480,
             bgcolor=ft.Colors.BLACK,
             border_radius=5
         ),
@@ -255,6 +266,11 @@ async def ask_date_hybrid(question):
     # Crear el campo de entrada para texto natural
     date_input = ft.TextField(
         label="Ingresa la fecha p.ej: hoy, mañana, lunes...",
+        color=ft.Colors.GREEN_ACCENT,
+        bgcolor=ft.Colors.BLACK,
+        border_color=ft.Colors.GREEN_ACCENT,
+        label_style=ft.TextStyle(color=ft.Colors.GREEN_ACCENT),
+        hint_style=ft.TextStyle(color=ft.Colors.GREEN_ACCENT),
         autofocus=True,
         multiline=False,
         expand=True,

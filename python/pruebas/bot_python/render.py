@@ -2,7 +2,6 @@ import flet as ft
 import ask
 import write_files
 import asyncio
-
 # ============================================================================
 # VARIABLES GLOBALES PARA ALMACENAR REFERENCIAS DE FLET
 # ============================================================================
@@ -157,10 +156,16 @@ async def smooth_chat_input(prompt: str):
 
     # Crear el campo de entrada
     input_field = ft.TextField(
-        label="Respuesta",
         autofocus=True,
-        multiline=False,
-        expand=True  # Se estira para ocupar el espacio disponible
+        multiline=True,
+        expand=True,
+        shift_enter=True,
+        cursor_color=ft.Colors.GREEN_ACCENT,
+        color=ft.Colors.GREEN_ACCENT,
+        bgcolor=ft.Colors.BLACK,
+        filled=True,
+        border_color=ft.Colors.GREEN_ACCENT,
+        max_lines=7
     )
 
     # Crear el botón de envío con icono
@@ -315,8 +320,8 @@ async def smooth_chat_buttons(prompt: str, buttons: list):
             content=ft.Text(btn_label),
             on_click=create_button_handler(btn_value),
             style=ft.ButtonStyle(
-                color=ft.Colors.WHITE,
-                bgcolor=ft.Colors.BLUE_700
+                color=ft.Colors.GREEN_ACCENT,
+                bgcolor=ft.Colors.BLACK
             )
         )
         button_controls.append(btn)

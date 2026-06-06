@@ -1,6 +1,39 @@
+import io
 import json
+import wave
 import render
 from datetime import datetime, timedelta
+
+# ============================================================================
+# FUNCIÓN: pcm_to_wav_bytes → CONVIERTE PCM A WAV EN MEMORIA
+# ============================================================================
+def pcm_to_wav_bytes(pcm_data: bytes, sample_rate: int = 16000, channels: int = 1, sample_width: int = 2) -> bytes:
+    # """Convierte audio PCM bruto a bytes WAV.
+
+    # Args:
+    #     pcm_data (bytes): Datos PCM sin encabezado.
+    #     sample_rate (int): Frecuencia de muestreo en Hz.
+    #     channels (int): Número de canales de audio.
+    #     sample_width (int): Bytes por muestra (2 para PCM16).
+
+    # Returns:
+    #     bytes: Contenido WAV válido.
+    # """
+    wav_buffer = io.BytesIO()
+    with wave.open(wav_buffer, "wb") as wav_file:
+        wav_file.setnchannels(channels)
+        wav_file.setsampwidth(sample_width)
+        wav_file.setframerate(sample_rate)
+        wav_file.writeframes(pcm_data)
+    return wav_buffer.getvalue()
+
+
+def save_pcm_to_wav(pcm_data: bytes, path: str, sample_rate: int = 16000, channels: int = 1, sample_width: int = 2) -> str:
+    # """Guarda bytes PCM como archivo WAV en disco."""
+    wav_bytes = pcm_to_wav_bytes(pcm_data, sample_rate, channels, sample_width)
+    with open(path, "wb") as f:
+        f.write(wav_bytes)
+    return path
 
 # ============================================================================
 # FUNCIÓN: format_date_readable → CONVIERTE DATETIME A FORMATO LEGIBLE
@@ -36,7 +69,7 @@ def format_date_readable(fecha_obj):
     año = fecha_obj.year
 
     # Retornar en formato legible
-    return f"{dia_semana}-{dia:02d}-{mes}-{año}"
+    return f"-{dia_semana}-{dia:02d}-{mes}-{año}"
 
 # ============================================================================
 # FUNCIÓN: calculate_date → TRADUCE TEXTO A FECHA LEGIBLE
@@ -119,6 +152,11 @@ def save_json_data(path, data):
 
 def linkHeading_md(md_name, heading_name):
     return f"[[{md_name}#{heading_name}]]"
+
+def create_stamp_path(name, suffix):
+    date_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    file_name = f"{name}_{date_time}.{suffix}"
+    return file_name
 
 if __name__ == "__main__":
     list_test = ["item1", "item2", "item3"]

@@ -117,6 +117,7 @@ async def select_option(options, obj_message):
         else:
             result_value = None
 
+        obj_message.init_select_msj()
         # Limpiar la interfaz: remover el bloque de selección
         try:
             _ = render._output_widget.controls.remove(selection_block)
@@ -143,6 +144,7 @@ async def select_option(options, obj_message):
     def on_cancel(e):
         nonlocal result_value
         result_value = None
+        obj_message.init_select_msj()
         try:
             _ = render._output_widget.controls.remove(selection_block)
         except Exception:

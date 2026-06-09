@@ -459,10 +459,10 @@ async def folder_picker(prompt="Selecciona una carpeta"):
 
 async def book_learn(action):
     # Función ASYNC porque usa diálogos de Flet
-    files_learnings = search.locate_files_suffix(action["path"] + "/", ".md")
     path = await check_actions_path(action)
     if not path:
         return None
+    files_learnings = search.locate_files_suffix(action["path"] + "/", ".md")
     if not files_learnings:
         render.smooth_print("No se encontraron archivos de aprendizajes de libros.")
         add_file = await ask.questionSN("¿Quieres agregar un archivo de aprendizajes de libros?")

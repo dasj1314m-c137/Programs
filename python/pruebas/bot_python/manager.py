@@ -6,7 +6,25 @@ import utils
 from datetime import date
 import flet as ft
 from pathlib import Path
+import audio_processor
+import os
+import objects
 
+
+_audio_buffer = bytearray()
+_page = None
+_output_column = None
+_audio_recorder = None
+_history_ia_bot = []
+
+data_base = objects.DataBase_Path()
+messages = objects.Messages()
+
+def init_manager(page: ft.Page, output_column: ft.Column, audio_recorder):
+    global _page, _output_column, _audio_recorder
+    _page = page
+    _output_column = output_column
+    _audio_recorder = audio_recorder
 
 def resolve_action_path(action):
     path = action["path"]
@@ -40,7 +58,7 @@ async def match_response(action):
 async def writing_files(action):
     # Función ASYNC porque usa diálogos de Flet
     d = date.today()
-    writing = await ask.open_question("Escribe: ")
+    writing = await ask.open_question("Escribe:")
     if writing == "exit":
         return None
     if writing is None:
@@ -53,8 +71,8 @@ async def writing_files(action):
 async def duesMD_render(action):
     dues_dir = search.get_json_value("data/data.json", "actions_paths", "dues_dir")
     # Función ASYNC porque lista_dues es async
-    render.smooth_print("Tus pendientes son: ")
-    choice = await list_dues(action["path"], True)
+    messages.set_select_msj("Selecciona un pendiente para ver detalles:")
+    choice = await list_links_heading(action["path"])
     if choice is None:
         return None
     # estructura del choice: (all, [file.md, heading, date]) p.ej.
@@ -64,7 +82,7 @@ async def duesMD_render(action):
     render.smooth_print(choice[1][2].strip() + "\n" + content.strip())
     return None
 
-async def list_dues(path, ask_select):
+async def list_links_heading(path):
     # Función ASYNC porque usa diálogos de Flet para seleccionar
     with open(path, 'r') as f:
         tasks = {}
@@ -74,7 +92,7 @@ async def list_dues(path, ask_select):
             key, value = search.getNH_md(line.strip())
             tasks[key] = value
         options = list(tasks.keys())
-        choice = await ask.select_option(options, ask_select=ask_select)
+        choice = await ask.select_option(options, messages)
         if choice is None:
             return None
         choice = utils.dic_index(tasks, choice)
@@ -116,18 +134,31 @@ async def add_due(action):
     # Función ASYNC porque usa diálogos de Flet
     dues_file = search.get_json_value("data/data.json", "actions_paths", "dues_file")
     while True:
+        file_name = None
+        path_file = None
         while True:
-            name_file = await ask.open_question("Escribe nombre del archivo donde quieres agregar el pendiente: ")
-            path_file = search.locate_get_file(action["path"] + "/", name_file + ".md")
+            file_name = await ask.open_question("Escribe nombre del archivo donde quieres agregar el pendiente: ")
+            path_file = search.locate_get_file(action["path"] + "/", file_name + ".md")
             if not path_file:
                 render.smooth_print("Archivo no encontrado.")
-                files = search.locate_files_suffix(action["path"] + "/", ".md")
-                render.smooth_print("Estos son los archivos disponibles: ")
-                for file in files:
-                    if file == "dues":
+                create_file = await ask.questionSN("¿Quieres crear un nuevo archivo con este nombre?")
+                if create_file:
+                    await folder_picker(prompt="Selecciona la carpeta donde quieres guardar el nuevo archivo")
+                    folder_path = data_base.get_dir_path()
+                    if not folder_path:
+                        render.smooth_print("No se seleccionó una carpeta. No se podrá crear el archivo.")
                         continue
-                    render.smooth_print(f"- {file}")
-                continue
+                    path_file = folder_path + "/" + file_name + ".md"
+                    break
+                files = search.locate_files_suffix(action["path"] + "/", ".md")
+                files.remove("dues")
+                messages.set_select_msj("Estos son los archivos disponibles para agregar el pendiente:")
+                choice = await ask.select_option(files, messages)
+                if choice is None:
+                    return None
+                file_name = files[choice]
+                path_file = f"{action["path"]}/{file_name}.md"
+                break
             break
         title_due = await ask.open_question("Escribe titulo del pendiente que quieres agregar: ")
         title_due = title_due.replace(",", "")
@@ -136,10 +167,10 @@ async def add_due(action):
             render.smooth_print("Agregación de pendiente cancelada.")
             return None
         content_due = await ask.open_question("Escribe contenido del pendiente que quieres agregar: ")
-        link_due = utils.linkHeading_md(name_file, title_due)
+        link_due = utils.linkHeading_md(file_name, title_due)
         link_due = link_due + " " + date_due
         new_due = f"## {title_due}\n{content_due}"
-        complete_add = await ask.questionSN(f"¿Quieres agregar el pendiente '{title_due}' al archivo '{name_file}.md'?")
+        complete_add = await ask.questionSN(f"¿Quieres agregar el pendiente '{title_due}' al archivo '{file_name}.md'?")
         if not complete_add:
             return None
         write_files.wadd_file(path_file, new_due)
@@ -153,8 +184,8 @@ async def rm_due(action):
     # Función ASYNC porque usa diálogos de Flet
     dues_file = search.get_json_value("data/data.json", "actions_paths", "dues_file")
     while True:
-        render.smooth_print("Selecciona el pendiente que quieres eliminar: ")
-        choice = await list_dues(dues_file, False)
+        messages.set_select_msj("Selecciona el pendiente que quieres eliminar:")
+        choice = await list_links_heading(dues_file)
         if choice is None:
             return None
         # estructura del choice: (all, [file.md, heading, date]) p.ej.
@@ -176,8 +207,8 @@ async def rm_due(action):
 
 async def dues_manager(action):
     # Función ASYNC porque usa diálogos y llama a funciones async
-    render.smooth_print("¿Qué quieres hacer?")
-    act = await ask.select_option(["Agregar pendiente", "Eliminar pendiente"], ask_select=False)
+    messages.set_select_msj("¿Qué acción quieres realizar con tus pendientes?")
+    act = await ask.select_option(["Agregar pendiente", "Eliminar pendiente"], messages)
     if act is None:
         return None
     if act == 0:
@@ -188,15 +219,12 @@ async def dues_manager(action):
 # ============================================================================
 # FUNCIÓN: main_menu → MENÚ PRINCIPAL DE BOTONES (REEMPLAZA terminal_listening)
 # ============================================================================
-async def main_menu(page: ft.Page, actions, output_column: ft.Column):
-    for key in actions:
-        path = await check_actions_path(actions[key])
-        if path:
-            resolve_action_path(actions[key])
+async def main_menu(actions):
     # Variables para almacenar referencias de botones y estado
     button_write = None
     button_dues_show = None
     button_dues_modify = None
+    button_book_learn = None
     button_exit = None
 
     # ========== HANDLERS DE BOTONES ==========
@@ -208,26 +236,39 @@ async def main_menu(page: ft.Page, actions, output_column: ft.Column):
             if result:
                 render.smooth_print("✓ Entrada de diario guardada")
         except Exception as ex:
-            render.smooth_print(f"✗ Error: {str(ex)}")
+            print(f"✗ Error: {str(ex)}")
 
     async def on_show_dues(e):
         # """Ejecuta la acción de ver pendientes"""
-        try:
-            await duesMD_render(actions["show_dues"])
-        except Exception as ex:
-            render.smooth_print(f"✗ Error: {str(ex)}")
+        # try:
+        await duesMD_render(actions["show_dues"])
+        # except Exception as ex:
+        #     print(f"✗ Error: {str(ex)}")
 
     async def on_modify_dues(e):
         # """Ejecuta la acción de modificar pendientes"""
         try:
             await dues_manager(actions["modify_dues"])
         except Exception as ex:
-            render.smooth_print(f"✗ Error: {str(ex)}")
+            print(f"✗ Error: {str(ex)}")
+
+    async def on_book_learn(e):
+        # """Ejecuta la acción de agregar aprendizajes de libros"""
+        try:
+            await book_learn(actions["book_learn"])
+        except Exception as ex:
+            print(f"✗ Error: {str(ex)}")
+
+    async def on_practice_english(e):
+        # """Ejecuta la acción de practica speaking english"""
+        try:
+            await practice_english()
+        except Exception as ex:
+            print(f"✗ Error: {str(ex)}")
 
     async def on_exit(e):
         # """Cierra la aplicación"""
-        render.smooth_print("Saliendo de la aplicación...")
-        await page.window.close()
+        await _page.window.close()
 
     # ========== CREAR BOTONES ==========
 
@@ -264,6 +305,28 @@ async def main_menu(page: ft.Page, actions, output_column: ft.Column):
         )
     )
 
+    button_book_learn = ft.ElevatedButton(
+        content="📚 Aprendizajes de libros",
+        on_click=on_book_learn,
+        width=250,
+        height=50,
+        style=ft.ButtonStyle(
+            bgcolor=ft.Colors.GREEN_ACCENT,
+            color=ft.Colors.BLACK
+        )
+    )
+
+    button_practice_english = ft.ElevatedButton(
+        content="🎤 Practicas ingles",
+        on_click=on_practice_english,
+        width=250,
+        height=50,
+        style=ft.ButtonStyle(
+            bgcolor=ft.Colors.YELLOW_ACCENT,
+            color=ft.Colors.BLACK
+        )
+    )
+
     button_exit = ft.ElevatedButton(
         content="🚪 Salir",
         on_click=on_exit,
@@ -295,6 +358,8 @@ async def main_menu(page: ft.Page, actions, output_column: ft.Column):
                 button_write,
                 button_dues_show,
                 button_dues_modify,
+                button_book_learn,
+                button_practice_english,
                 button_exit,
             ],
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
@@ -310,7 +375,7 @@ async def main_menu(page: ft.Page, actions, output_column: ft.Column):
     # Construir layout dividido en dos secciones: mensajes grandes a la izquierda
     # y menú de acciones compacto a la derecha.
     output_container = ft.Container(
-        content=output_column,
+        content=_output_column,
         border_radius=10,
         padding=20,
         expand=True,
@@ -318,7 +383,7 @@ async def main_menu(page: ft.Page, actions, output_column: ft.Column):
         margin=10,
     )
 
-    page.add(
+    _page.add(
         ft.Row(
             controls=[
                 output_container,
@@ -330,10 +395,16 @@ async def main_menu(page: ft.Page, actions, output_column: ft.Column):
             spacing=10,
         )
     )
-    page.update()
+    _page.update()
 
     # Mensaje de bienvenida
     render.smooth_print("Sistema listo. Usa los botones del panel derecho para interactuar.")
+    for key in actions:
+        if actions[key].get("path") is None:
+            continue
+        path = await check_actions_path(actions[key])
+        if path:
+            resolve_action_path(actions[key])
 
 async def check_actions_path(action):
     # Función ASYNC porque usa diálogos de Flet
@@ -342,49 +413,324 @@ async def check_actions_path(action):
     path = search.get_json_value("data/data.json", "actions_paths", action["path"])
     if not path:
         file = "un archivo" if action["path_file"] else "una carpeta"
-        act = "eliminar o agregar" if action["json_key"] == "dues_modified" else "revisar"
+        act = "modificar"
         render.smooth_print(f"No tenemos {file} para {act} {action['name']}.")
         add_path = await ask.questionSN(f"Quieres ingresar una ruta para este {file.split()[1]}?")
         if add_path:
             if action["path_file"]:
-                file_picker(action, ".md")
+                await file_picker([".md"], multiple=False)
+                file_path = data_base.get_file_path()
+                if file_path is None:
+                    render.smooth_print("No se seleccionó un archivo. No se podrá realizar la acción.")
+                    return False
+                write_files.set_var_json("data/data.json", "actions_paths", action["path"], file_path)
             else:
-                folder_picker(action)
+                await folder_picker()
+                folder_path = data_base.get_dir_path()
+                if folder_path is None:
+                    render.smooth_print("No se seleccionó una carpeta. No se podrá realizar la acción.")
+                    return False
+                write_files.set_var_json("data/data.json", "actions_paths", action["path"], folder_path)
         else:
             render.smooth_print("No se podrá realizar la acción sin un archivo asociado.")
             return False
     return True
 
-def file_picker(action, *posfix, multiple=False):
-    async def main(page: ft.Page):
-        async def handle_pick_file(e):
-            picker = ft.FilePicker()
-            path = await picker.pick_files(allowed_extensions=posfix, allow_multiple=multiple)
-            if path:
-                file_path = path[0].path
-                write_files.set_var_json("data/data.json", "actions_paths", action["path"], file_path)
-            else:
-                render.smooth_print("No se seleccionó ningun archivo.")
-            await page.window.close()
+async def file_picker(posfix, multiple=False, prompt="Selecciona un archivo"):
+    picker = ft.FilePicker()
+    path = await picker.pick_files(dialog_title=prompt, allowed_extensions=posfix, allow_multiple=multiple)
+    if path:
+        file_path = path[0].path
+        data_base.save_file_path(file_path)
+        render.smooth_print("Ruta de archivo seleccionada exitosamente")
+    else:
+        pass
 
-        button_select = ft.ElevatedButton(content="Seleccionar archivo", on_click=handle_pick_file)
-        page.add(button_select)
+async def folder_picker(prompt="Selecciona una carpeta"):
+    picker = ft.FilePicker()
+    # async def main(page: ft.Page):
+    path = await picker.get_directory_path(dialog_title=prompt)
+    if path:
+        folder_path = path
+        data_base.save_dir_path(folder_path)
+        render.smooth_print("Ruta de carpeta seleccionada exitosamente")
+    else:
+        pass
 
-    ft.app(target=main)
+async def book_learn(action):
+    # Función ASYNC porque usa diálogos de Flet
+    files_learnings = search.locate_files_suffix(action["path"] + "/", ".md")
+    path = await check_actions_path(action)
+    if not path:
+        return None
+    if not files_learnings:
+        render.smooth_print("No se encontraron archivos de aprendizajes de libros.")
+        add_file = await ask.questionSN("¿Quieres agregar un archivo de aprendizajes de libros?")
+        if add_file:
+            file_name = await ask.open_question("Escribe el nombre del libro: ")
+            content = await ask.open_question("Escribe el aprendizaje: ")
+            new_file = f"{file_name}.md"
+            write_files.wadd_file(action["path"] + "/" + new_file, content)
+            render.smooth_print("Aprendizaje de libro agregado exitosamente.")
+        else:
+            render.smooth_print("No se podrán registrar aprendizajes sin un archivo asociado.")
+            return None
+    else:
+        messages.set_select_msj("Estos son los archivos de aprendizajes de libros disponibles: ")
+        choice = await ask.select_option(files_learnings, messages)
+        if choice is None:
+            return None
+        content = await ask.open_question("Escribe el aprendizaje que quieres agregar: ")
+        if content is None:
+            render.smooth_print("Agregación de aprendizaje cancelada.")
+            return None
+        choice = files_learnings[choice]
+        file_name = choice + ".md"
+        write_files.wadd_file(action["path"] + "/" + file_name, content)
+        render.smooth_print("Aprendizaje de libro agregado exitosamente.")
 
-def folder_picker(action):
-    async def main(page: ft.Page):
-        async def handle_pick_folder(e):
-            picker = ft.FilePicker()
-            path = await picker.get_directory_path()
-            if path:
-                folder_path = path
-                write_files.set_var_json("data/data.json", "actions_paths", action["path"], folder_path)
-            else:
-                render.smooth_print("No se seleccionó ninguna carpeta.")
-            await page.window.close()
+async def practice_english():
+    await audio_manager()
 
-        button_select = ft.ElevatedButton(content="Seleccionar carpeta", on_click=handle_pick_folder)
-        page.add(button_select)
+# ============================================================================
+# FUNCIÓN: process_recorded_audio → PROCESA EL AUDIO GRABADO
+# ============================================================================
+async def talk_audio_ia(path):
+    # """Procesa el audio grabado, lo transcribe y muestra la respuesta del coach."""
+    # try:
+    if len(_history_ia_bot) == 0:
+        instructions_bot = {
+            "role": "system",
+            "content": (
+                "You are a chill, friendly American English coach with a relaxed, YouTuber-like vibe. "
+                "Your goal is to help the user practice natural, everyday spoken English through a fluid conversation.\n\n"
 
-    ft.app(target=main)
+                "STRICT RULES:\n"
+                "1. ALWAYS reply in English, even if the user speaks in Spanish.\n"
+                "2. Keep answers short and punchy (max 2-3 sentences) to maintain a fast conversational pace.\n"
+                "3. Use casual language, contractions (gonna, wanna, context-appropriate slang), and a friendly tone. Avoid sounding formal or academic.\n\n"
+
+                "CONVERSATION FLOW:\n"
+                "- Start by asking the user how their day is going.\n"
+                "- If the user shares something, actively follow up on their story and ask engaging questions about it.\n"
+                "- If the user gives a short answer or doesn't suggest a topic, smoothly introduce a new, interesting everyday topic (e.g., tech, pop culture, animals, history, daily life) to keep the chat alive.\n\n"
+
+                "CORRECTION STYLE (SUBTLE):\n"
+                "- NEVER correct natural, informal greetings or casual phrasing like 'How's it going?'. That is correct for this context.\n"
+                "- Only correct major grammatical errors that hurt clarity (e.g., wrong verb tenses or broken structures).\n"
+                "- Do NOT use bullet points, bold text, or formal grammar explanations for corrections. Instead, embed the correction subtly in your natural response (e.g., 'Oh, you went to the store yesterday? That's awesome, what did you buy?')."
+            )
+        }
+        _history_ia_bot.append(instructions_bot)
+
+    render.smooth_print("Procesando audio...")
+    _page.update()
+
+    transcribed_text = await audio_processor.transcribe_audio(path)
+
+    if not transcribed_text or transcribed_text.strip() == "":
+        render.smooth_print("[⚠️] No se detectó audio en la grabación")
+        return
+
+    usr_msj = {
+        "role": "user",
+        "content": transcribed_text
+    }
+    _history_ia_bot.append(usr_msj)
+
+    user_message_card = ft.Card(
+        content=ft.Container(
+            content=ft.Text(
+                value=transcribed_text,
+                size=14,
+                color=ft.Colors.BLUE_ACCENT,
+                selectable=True
+            ),
+            padding=12,
+            bgcolor=ft.Colors.GREY_900,
+            border_radius=5
+        ),
+        margin=8
+    )
+
+    _output_column.controls.append(user_message_card)
+    _page.update()
+
+    coach_response = await audio_processor.talk_with_coach(_history_ia_bot)
+
+    assistant_msj = {
+        "role": "assistant",
+        "content": coach_response
+    }
+    _history_ia_bot.append(assistant_msj)
+
+    coach_message_card = ft.Card(
+        content=ft.Container(
+            content=ft.Text(
+                value=coach_response,
+                size=14,
+                color=ft.Colors.GREEN_ACCENT,
+                selectable=True
+            ),
+            padding=12,
+            bgcolor=ft.Colors.BLACK,
+            border_radius=5
+        ),
+        margin=8
+    )
+    _output_column.controls.append(coach_message_card)
+    _page.update()
+
+    try:
+        os.remove(path)
+    except Exception as ex:
+        print(f"algo salio mal ->: {ex}")
+
+    # except Exception as ex:
+    #     render.smooth_print(f"[ERROR] Error procesando audio: {ex}")
+
+async def audio_manager():
+    buttons = []
+    current_audio_path = None
+
+    async def toggle_recording(e):
+        is_recording = e.control.data
+        nonlocal current_audio_path
+
+        if not is_recording:
+            e.control.data = True
+            e.control.icon = ft.Icons.STOP_CIRCLE
+            e.control.icon_color = ft.Colors.RED
+            e.control.update()
+
+            _audio_buffer.clear()
+            render.smooth_print("Iniciando grabacion..")
+            current_audio_path = utils.create_stamp_path("record", "wav")
+            current_audio_path = f"audios/{current_audio_path}"
+            await _audio_recorder.start_recording(output_path=current_audio_path)
+
+
+        else:
+            try:
+                # Modo: DETENER GRABACIÓN
+                e.control.data = False
+                e.control.icon = ft.Icons.MIC
+                e.control.icon_color = ft.Colors.GREEN_ACCENT
+                e.control.update()
+
+                render.smooth_print("Grabacion terminada")
+                await _audio_recorder.stop_recording()
+
+                raw_bytes = bytes(_audio_buffer)
+                _audio_buffer.clear()
+
+                if not raw_bytes:
+                    render.smooth_print("Sin entrada de audio")
+                    return
+
+                utils.save_pcm_to_wav(raw_bytes, current_audio_path)
+
+                await talk_audio_ia(current_audio_path)
+
+                _output_column.controls.remove(btn_row)
+                _output_column.controls.append(btn_row)
+                _page.update()
+
+            except Exception as ex:
+                print(f"🚨 ¡TE CACHÉ! El grabador explotó por esto: {ex}")
+
+    # async def handle_pause(e):
+    #     if await audio_recorder.is_recording():
+    #         await audio_recorder.pause_recording()
+
+    # async def handle_resume(e):
+    #     if await audio_recorder.is_paused():
+    #         await audio_recorder.resume_recording()
+
+    # async def handle_record(e):
+    #     nonlocal current_audio_path
+    #     _audio_buffer.clear()
+    #     render.smooth_print("Iniciando grabacion..")
+    #     current_audio_path = utils.create_stamp_path("record", "wav")
+    #     current_audio_path = f"audios/{current_audio_path}"
+    #     await _audio_recorder.start_recording(output_path=current_audio_path)
+
+    # async def handle_stop(e):
+    #     render.smooth_print("Grabacion terminada")
+    #     # try:
+    #     await _audio_recorder.stop_recording()
+
+    #     raw_bytes = bytes(_audio_buffer)
+    #     _audio_buffer.clear()
+
+    #     if not raw_bytes:
+    #         render.smooth_print("Sin entrada de audio")
+    #         return
+
+    #     utils.save_pcm_to_wav(raw_bytes, current_audio_path)
+
+    #     await talk_audio_ia(current_audio_path)
+
+    #     _output_column.controls.remove(btn_row)
+    #     _output_column.controls.append(btn_row)
+    #     _page.update()
+        # except Exception as ex:
+        #     render.smooth_print(f"[ERROR] o grabación: {ex}")
+
+    async def cancel(e):
+        _audio_buffer.clear()
+        _history_ia_bot.clear()
+        render.smooth_print("Chat cerrado nos vemos")
+        _output_column.controls.remove(btn_row)
+        _page.update()
+
+    btn_grabar = ft.IconButton(
+        icon=ft.Icons.MIC,
+        icon_color=ft.Colors.GREEN_ACCENT,
+        bgcolor=ft.Colors.BLACK,
+        on_click=toggle_recording,
+        data=False
+    )
+
+    # btn_stop = ft.IconButton(
+    #     icon=ft.Icons.STOP_CIRCLE,
+    #     icon_color=ft.Colors.RED,
+    #     bgcolor=ft.Colors.BLACK,
+    #     on_click=handle_stop
+    # )
+
+    btn_cancel = ft.ElevatedButton(
+        content=ft.Text("Cancel"),
+        color=ft.Colors.GREEN_ACCENT,
+        bgcolor=ft.Colors.BLACK,
+        on_click=cancel
+    )
+
+    # btn_pause = ft.IconButton(
+    #     icon=ft.Icons.PAUSE,
+    #     icon_color=ft.Colors.GREEN_ACCENT,
+    #     bgcolor=ft.Colors.BLACK,
+    #     on_click=handle_pause
+    # )
+    # btn_resume = ft.IconButton(
+    #     icon=ft.Icons.PLAY_ARROW,
+    #     icon_color=ft.Colors.GREEN_ACCENT,
+    #     bgcolor=ft.Colors.BLACK,
+    #     on_click=handle_resume
+    # )
+
+    buttons.append(btn_grabar)
+    # buttons.append(btn_stop)
+    buttons.append(btn_cancel)
+    # buttons.append(btn_pause)
+    # buttons.append(btn_resume)
+
+    btn_row = ft.Row(
+        controls=buttons,
+        spacing=8,
+        alignment=ft.MainAxisAlignment.CENTER
+    )
+
+    render.smooth_print("Puedes iniciar grabacion")
+    _output_column.controls.append(btn_row)
+    _page.update()

@@ -75,27 +75,25 @@ async def duesMD_render(action):
     choice = await list_links_heading(action["path"])
     if choice is None:
         return None
-    # estructura del choice: (all, [file.md, heading, date]) p.ej.
-    # ('recursos_socioemocionales Triptico Infografia Tabla  miercoles 6 mayo', ['recursos_socioemocionales.md', 'Triptico Infografia Tabla', ' miercoles 6 mayo'])
-    path = search.locate_get_file(dues_dir + "/", choice[1][0])
-    content = search.getMD_block(path, choice[1][1])
-    render.smooth_print(choice[1][2].strip() + "\n" + content.strip())
+    # choice es un objeto Due con name=file, description=heading y date=fecha
+    path = search.locate_get_file(dues_dir + "/", choice.name)
+    content = search.getMD_block(path, choice.description)
+    date_text = choice.date.strip() if choice.date else ""
+    render.smooth_print(date_text + "\n" + content.strip())
     return None
 
 async def list_links_heading(path):
+    obj_opts = objects.OptionsManager()
     # Función ASYNC porque usa diálogos de Flet para seleccionar
     with open(path, 'r') as f:
-        tasks = {}
         for line in f:
             if line.strip() == "":
                 continue
-            key, value = search.getNH_md(line.strip())
-            tasks[key] = value
-        options = list(tasks.keys())
-        choice = await ask.select_option(options, messages)
+            _, value = search.getNH_md(line.strip())
+            utils.creating_obj_due(obj_opts, value[0], value[1], value[2])
+        choice = await ask.select_option(obj_opts, messages)
         if choice is None:
             return None
-        choice = utils.dic_index(tasks, choice)
         return choice
 
 def daily_check():
@@ -134,13 +132,15 @@ async def add_due(action):
     # Función ASYNC porque usa diálogos de Flet
     dues_file = search.get_json_value("data/data.json", "actions_paths", "dues_file")
     while True:
-        file_name = None
-        path_file = None
         while True:
-            file_name = await ask.open_question("Escribe nombre del archivo donde quieres agregar el pendiente: ")
-            path_file = search.locate_get_file(action["path"] + "/", file_name + ".md")
-            if not path_file:
-                render.smooth_print("Archivo no encontrado.")
+            files = search.locate_files_suffix(action["path"] + "/", ".md")
+            files.remove("dues")
+            messages.set_select_msj("Estos son los archivos disponibles para agregar el pendiente:")
+            file_name = await ask.select_option(files, messages, opt_other=True)
+            if file_name is None:
+                return None
+            elif file_name == "Otro":
+                file_name = await ask.open_question("Escribe nombre del nuevo archivo donde quieres agregar el pendiente: ")
                 create_file = await ask.questionSN("¿Quieres crear un nuevo archivo con este nombre?")
                 if create_file:
                     await folder_picker(prompt="Selecciona la carpeta donde quieres guardar el nuevo archivo")
@@ -150,19 +150,11 @@ async def add_due(action):
                         continue
                     path_file = folder_path + "/" + file_name + ".md"
                     break
-                files = search.locate_files_suffix(action["path"] + "/", ".md")
-                files.remove("dues")
-                messages.set_select_msj("Estos son los archivos disponibles para agregar el pendiente:")
-                choice = await ask.select_option(files, messages)
-                if choice is None:
-                    return None
-                file_name = files[choice]
-                path_file = f"{action["path"]}/{file_name}.md"
-                break
+            path_file = search.locate_get_file(action["path"] + "/", file_name + ".md")
             break
         title_due = await ask.open_question("Escribe titulo del pendiente que quieres agregar: ")
         title_due = title_due.replace(",", "")
-        date_due = await ask.ask_date_hybrid("¿Para cuándo es el pendiente? ")
+        date_due = await ask.ask_date_hybrid("Fecha del pendiente")
         if date_due is None:
             render.smooth_print("Agregación de pendiente cancelada.")
             return None
@@ -188,15 +180,14 @@ async def rm_due(action):
         choice = await list_links_heading(dues_file)
         if choice is None:
             return None
-        # estructura del choice: (all, [file.md, heading, date]) p.ej.
-        # ('recursos_socioemocionales Triptico Infografia Tabla  miercoles 6 mayo', ['recursos_socioemocionales.md', 'Triptico Infografia Tabla', ' miercoles 6 mayo'])
-        path_file = search.locate_get_file(action["path"] + "/", choice[1][0])
-        link = utils.linkHeading_md(choice[1][0].replace(".md", ""), choice[1][1])
-        complete_rm = await ask.questionSN(f"¿Quieres eliminar el pendiente '{choice[1][1]}' del archivo '{choice[1][0]}'?")
+        # choice es un objeto Due con name=file, description=heading y date=fecha
+        path_file = search.locate_get_file(action["path"] + "/", choice.name)
+        link = utils.linkHeading_md(choice.name.replace(".md", ""), choice.description)
+        complete_rm = await ask.questionSN(f"¿Quieres eliminar el pendiente '{choice.description}' del archivo '{choice.name}'?")
         if not complete_rm:
             return None
         rm_link = write_files.rm_MD_block(dues_file, link[2:], "[[")
-        rm_due = write_files.rm_MD_block(path_file, choice[1][1])
+        rm_due = write_files.rm_MD_block(path_file, choice.description)
         if not rm_due or not rm_link:
             render.smooth_print("Sin coincidencias en el archivo del pendiente o en el archivo de links")
             return None
@@ -211,10 +202,12 @@ async def dues_manager(action):
     act = await ask.select_option(["Agregar pendiente", "Eliminar pendiente"], messages)
     if act is None:
         return None
-    if act == 0:
+    if act == "Agregar pendiente":
         await add_due(action)
-    elif act == 1:
+    elif act == "Eliminar pendiente":
         await rm_due(action)
+    else:
+        render.smooth_print("revisa tus condicionales chaufa")
 
 # ============================================================================
 # FUNCIÓN: main_menu → MENÚ PRINCIPAL DE BOTONES (REEMPLAZA terminal_listening)
@@ -477,17 +470,23 @@ async def book_learn(action):
             return None
     else:
         messages.set_select_msj("Estos son los archivos de aprendizajes de libros disponibles: ")
-        choice = await ask.select_option(files_learnings, messages)
+        choice = await ask.select_option(files_learnings, messages, opt_other=True)
         if choice is None:
             return None
-        content = await ask.open_question("Escribe el aprendizaje que quieres agregar: ")
-        if content is None:
-            render.smooth_print("Agregación de aprendizaje cancelada.")
-            return None
-        choice = files_learnings[choice]
-        file_name = choice + ".md"
-        write_files.wadd_file(action["path"] + "/" + file_name, content)
-        render.smooth_print("Aprendizaje de libro agregado exitosamente.")
+        elif choice == "Otro":
+            file_name = await ask.open_question("Escribe el nombre del libro: ")
+            content = await ask.open_question("Escribe el aprendizaje: ")
+            new_file = f"{file_name}.md"
+            write_files.wadd_file(action["path"] + "/" + new_file, content)
+            render.smooth_print("Aprendizaje de libro agregado exitosamente.")
+        else:
+            content = await ask.open_question("Escribe el aprendizaje que quieres agregar: ")
+            if content is None:
+                render.smooth_print("Agregación de aprendizaje cancelada.")
+                return None
+            file_name = choice + ".md"
+            write_files.wadd_file(action["path"] + "/" + file_name, content)
+            render.smooth_print("Aprendizaje de libro agregado exitosamente.")
 
 async def practice_english():
     await audio_manager()
@@ -734,3 +733,4 @@ async def audio_manager():
     render.smooth_print("Puedes iniciar grabacion")
     _output_column.controls.append(btn_row)
     _page.update()
+

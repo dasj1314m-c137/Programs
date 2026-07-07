@@ -48,6 +48,10 @@ def smooth_print(txt: str):
 
     # Crear un Card con estilo para que el mensaje tenga un fondo bonito
     # Fondo gris para contraste con el fondo negro, texto verde hacker
+
+    # hacemos esta reasignacion para activar el __str__ de la clase y se pase como texto ya que en este caso no se activa porque es flet
+    txt = str(txt)
+
     message_card = ft.Card(
         content=ft.Container(
             content=ft.Text(

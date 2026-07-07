@@ -3,6 +3,7 @@ import json
 import wave
 import render
 from datetime import datetime, timedelta
+from objects import Due
 
 # ============================================================================
 # FUNCIÓN: pcm_to_wav_bytes → CONVIERTE PCM A WAV EN MEMORIA
@@ -69,7 +70,7 @@ def format_date_readable(fecha_obj):
     año = fecha_obj.year
 
     # Retornar en formato legible
-    return f"-{dia_semana}-{dia:02d}-{mes}-{año}"
+    return f"{dia_semana}-{dia:02d}-{mes}-{año}"
 
 # ============================================================================
 # FUNCIÓN: calculate_date → TRADUCE TEXTO A FECHA LEGIBLE
@@ -157,6 +158,13 @@ def create_stamp_path(name, suffix):
     date_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     file_name = f"{name}_{date_time}.{suffix}"
     return file_name
+
+def creating_obj_due(obj_options, opt_name, opt_description=False, opt_date=False):
+    if opt_description and opt_date:
+        due = Due(opt_name, opt_description, opt_date)
+    else:
+        due = Due(opt_name)
+    obj_options.add_due(due)
 
 if __name__ == "__main__":
     list_test = ["item1", "item2", "item3"]

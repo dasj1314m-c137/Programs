@@ -3,6 +3,7 @@ import flet as ft
 import asyncio
 import utils
 from datetime import datetime as dt
+from objects import OptionsManager
 
 # ============================================================================
 # ACCESO A LA PÁGINA DE FLET
@@ -55,7 +56,7 @@ async def open_question(question):
 # ============================================================================
 # FUNCIÓN: select_option → SELECCIONA DE UNA LISTA EN DIÁLOGO
 # ============================================================================
-async def select_option(options, obj_message):
+async def select_option(options_or_manager, obj_message, opt_other=False):
     # """
     # Permite al usuario seleccionar una opción de una lista.
 
@@ -66,14 +67,11 @@ async def select_option(options, obj_message):
     #     opcion = await ask.select_option(["Opción 1", "Opción 2"])
 
     # Args:
-    #     options: Lista de opciones para elegir
-    #     ask_select: Si True, pregunta primero si desea seleccionar
+    #     options_or_manager: Lista de opciones o un objeto que provee sort_dues().
+    #              Si los elementos no son strings, se usa str(item) para mostrarlos.
 
     # Returns:
-    #     int: El índice (0-based) de la opción seleccionada,
-    #          False si cancela el ask_select inicial,
-    #          None si cancela la selección
-    # """
+    #     object: El elemento seleccionado de la lista, o None si cancela.
 
     page = _get_page()
 
@@ -90,18 +88,33 @@ async def select_option(options, obj_message):
     result_value = None
     dialog_closed = asyncio.Event()
 
+    if isinstance(options_or_manager, list):
+        sorted_options = sorted(options_or_manager)
+    elif isinstance(options_or_manager, OptionsManager):
+        sorted_options = options_or_manager.sort_dues()
+        sorted_options = options_or_manager.clean_suffix(sorted_options)
+    else:
+        render.smooth_print("fallo no pasaste ni lista normal ni objeto lista de objetos")
+
+    if opt_other:
+        # options.append("Otro")
+        sorted_options.append("Otro")
+
     # Grupo de radio (valores como índices 0-based en string)
     radio_controls = [ft.Radio(
         value=str(i),
-        label=opt,
+        label=str(opt),
         active_color=ft.Colors.GREEN_ACCENT,
         label_style=ft.TextStyle(bgcolor=ft.Colors.BLACK, color=ft.Colors.GREEN_ACCENT)
         )
-        for i, opt in enumerate(options)
+        for i, opt in enumerate(sorted_options)
         ]
 
     # Contenedor que agrupa las opciones
-    options_column = ft.Column(controls=radio_controls, spacing=6)
+    if len(sorted_options) > 5:
+        options_column = ft.Column(controls=radio_controls, spacing=6, scroll=ft.ScrollMode.ALWAYS, height=180)
+    else:
+         options_column = ft.Column(controls=radio_controls, spacing=6)
 
     # Inicializar RadioGroup con el contenido (requerido por Flet)
     radio_group = ft.RadioGroup(content=options_column)
@@ -111,7 +124,10 @@ async def select_option(options, obj_message):
         nonlocal result_value
         if radio_group.value is not None:
             try:
-                result_value = int(radio_group.value)
+                selected_index = int(radio_group.value)
+                if isinstance(options_or_manager, OptionsManager):
+                    sorted_options[selected_index].name += ".md"
+                result_value = sorted_options[selected_index]
             except Exception:
                 result_value = None
         else:
@@ -126,10 +142,9 @@ async def select_option(options, obj_message):
 
         # Mostrar la elección del usuario en el historial (si seleccionó algo)
         if result_value is not None:
-            sel_label = options[result_value]
             user_choice_card = ft.Card(
                 content=ft.Container(
-                    content=ft.Text(value=f"→ {sel_label}", size=14, color=ft.Colors.BLUE_ACCENT),
+                    content=ft.Text(value=f"→ {str(result_value)}", size=14, color=ft.Colors.BLUE_ACCENT),
                     padding=12,
                     bgcolor=ft.Colors.GREY_900,
                     border_radius=5
@@ -137,6 +152,7 @@ async def select_option(options, obj_message):
                 margin=8
             )
             render._output_widget.controls.append(user_choice_card)
+
 
         render._page.update()
         dialog_closed.set()

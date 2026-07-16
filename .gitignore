@@ -16,3 +16,7 @@ data/
 practicas*/
 .DS_Store
 audios/
+large/
+small/
+*.ttf
+requirements.txt

@@ -92,7 +92,9 @@ async def select_option(options_or_manager, obj_message, opt_other=False):
         sorted_options = sorted(options_or_manager)
     elif isinstance(options_or_manager, OptionsManager):
         sorted_options = options_or_manager.sort_dues()
-        sorted_options = options_or_manager.clean_suffix(sorted_options)
+        # Convertir fechas a formato humanizado (ayer, hoy, mañana, día de semana)
+        # antes de ordenar los pendientes y quitar el sufijo
+        options_or_manager.date_to_human()
     else:
         render.smooth_print("fallo no pasaste ni lista normal ni objeto lista de objetos")
 
@@ -125,8 +127,6 @@ async def select_option(options_or_manager, obj_message, opt_other=False):
         if radio_group.value is not None:
             try:
                 selected_index = int(radio_group.value)
-                if isinstance(options_or_manager, OptionsManager):
-                    sorted_options[selected_index].name += ".md"
                 result_value = sorted_options[selected_index]
             except Exception:
                 result_value = None

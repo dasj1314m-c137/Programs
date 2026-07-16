@@ -161,92 +161,93 @@ def eleccion_funciones(oprUser, dic_funciones, *data):
 # intervalos = cal_intervalo(list_num)
 # print(intervalos)
 
-opr = ["rango", "varianza", "desviacion estandar", "mediana", "moda", "media", "frecuencia absoluta", "frecuencia acumulada", "frecuencia relativa", "porcentaje", "intervalo"]
+if __name__ == "__main__":
+    opr = ["rango", "varianza", "desviacion estandar", "mediana", "moda", "media", "frecuencia absoluta", "frecuencia acumulada", "frecuencia relativa", "porcentaje", "intervalo"]
 
-opr_dataAislada = {
-    "rango": rango,
-    "varianza": varianza,
-    "desviacion estandar": desviacion_estandar,
-    "mediana": mediana,
-    "moda": moda,
-    "media": media,
-    "frecuencia absoluta": frecA,
-    "frecuencia acumulada": frecAcum,
-    "frecuencia relativa": frecR
-}
-oprs_intervalos_f = {
-    "frecuencia absoluta": frecA_intervalos,
-    "frecuencia acumulada": frecAcum_intervalos,
-    "frecuencia relativa": frecR_intervalos
-}
-opr_porcentaje = {
-    "neto": porcentaje_neto,
-    "valor": valor_porcentaje
-}
+    opr_dataAislada = {
+        "rango": rango,
+        "varianza": varianza,
+        "desviacion estandar": desviacion_estandar,
+        "mediana": mediana,
+        "moda": moda,
+        "media": media,
+        "frecuencia absoluta": frecA,
+        "frecuencia acumulada": frecAcum,
+        "frecuencia relativa": frecR
+    }
+    oprs_intervalos_f = {
+        "frecuencia absoluta": frecA_intervalos,
+        "frecuencia acumulada": frecAcum_intervalos,
+        "frecuencia relativa": frecR_intervalos
+    }
+    opr_porcentaje = {
+        "neto": porcentaje_neto,
+        "valor": valor_porcentaje
+    }
 
-while True:
     while True:
-        oprUser = input(f"Ingrese la operacion a realizar {opr}: ").lower()
-        if oprUser not in opr:
-            print("Operacion no valida")
-        else:
-            break
-
-    if oprUser in opr[:-2]:
         while True:
-            lista = input("Ingrese los datos separados por comas p.ej. 1, 2, 3, 4, 5: ")
-            try:
-                list_num = [float(x) for x in lista.split(",")]
-                resultado = eleccion_funciones(oprUser, opr_dataAislada, list_num)
-                if "frecuencia" in oprUser:
-                    resultado = presentacion_dicts(normalizar_dicts(resultado))
-                print(f"El resultado de la {oprUser} es: \n{resultado}")
+            oprUser = input(f"Ingrese la operacion a realizar {opr}: ").lower()
+            if oprUser not in opr:
+                print("Operacion no valida")
+            else:
                 break
-            except ValueError:
-                print("Ingrese los datos en el formato correcto")
 
-    elif oprUser == "porcentaje":
-        while True:
-            try:
-                tipo_porcentaje = input("Ingrese el tipo de porcentaje a calcular (neto/valor): ").lower()
-                if tipo_porcentaje not in opr_porcentaje.keys():
-                    print("Tipo de porcentaje no valido")
-                    continue
-                else:
-                    total = int(input("Ingrese el total: "))
-                    valor = int(input("Ingrese el valor o porcentaje: "))
-                    resultado = eleccion_funciones(tipo_porcentaje, opr_porcentaje, total, valor)
-                resultado = presentacion_dicts(resultado)
-                print(f"El resultado de tipo de porcentaje {tipo_porcentaje} es: {resultado}")
-                break
-            except ValueError:
-                print("Ingrese un tipo de dato correcto")
-
-    elif oprUser == "intervalo":
-        while True:
-            try:
+        if oprUser in opr[:-2]:
+            while True:
                 lista = input("Ingrese los datos separados por comas p.ej. 1, 2, 3, 4, 5: ")
-                lista = [float(x) for x in lista.split(",")]
-                intervalos = cal_intervalo(lista)
-                intervalos = clean_intervalos(intervalos)
+                try:
+                    list_num = [float(x.strip()) for x in lista.split(",")]
+                    resultado = eleccion_funciones(oprUser, opr_dataAislada, list_num)
+                    if "frecuencia" in oprUser:
+                        resultado = presentacion_dicts(normalizar_dicts(resultado))
+                    print(f"El resultado de la {oprUser} es: \n{resultado}")
+                    break
+                except ValueError:
+                    print("Ingrese los datos en el formato correcto")
 
-                tipo_frecuencia = input("Que frecuencia desea obtener (frecuencia absoluta/frecuencia acumulada/frecuencia relativa/todas): ")
-                if tipo_frecuencia == "todas":
-                    resultado = {}
-                    for key in oprs_intervalos_f.keys():
-                        resultado[key] = eleccion_funciones(key, oprs_intervalos_f, lista, intervalos)
-                    tipo_frecuencia += " las frecuencias"
-                elif "frecuencia" not in tipo_frecuencia:
-                    print("Tipo de frecuencia no valido")
-                    continue
-                else:
-                    resultado = eleccion_funciones(tipo_frecuencia, oprs_intervalos_f, lista, intervalos)
-                resultado = presentacion_dicts(resultado)
-                print(f"El resultado de {tipo_frecuencia} es:\n{resultado}")
-                break
-            except ValueError:
-                print("Ingrese sus datos en el formato correcto")
+        elif oprUser == "porcentaje":
+            while True:
+                try:
+                    tipo_porcentaje = input("Ingrese el tipo de porcentaje a calcular (neto/valor): ").lower()
+                    if tipo_porcentaje not in opr_porcentaje.keys():
+                        print("Tipo de porcentaje no valido")
+                        continue
+                    else:
+                        total = int(input("Ingrese el total: "))
+                        valor = int(input("Ingrese el valor o porcentaje: "))
+                        resultado = eleccion_funciones(tipo_porcentaje, opr_porcentaje, total, valor)
+                    resultado = presentacion_dicts(resultado)
+                    print(f"El resultado de tipo de porcentaje {tipo_porcentaje} es: {resultado}")
+                    break
+                except ValueError:
+                    print("Ingrese un tipo de dato correcto")
 
-    continuar = input("¿Desea realizar otra operacion? (si/no): ").lower()
-    if continuar in "no":
-        break
+        elif oprUser == "intervalo":
+            while True:
+                try:
+                    lista = input("Ingrese los datos separados por comas p.ej. 1, 2, 3, 4, 5: ")
+                    lista = [float(x) for x in lista.split(",")]
+                    intervalos = cal_intervalo(lista)
+                    intervalos = clean_intervalos(intervalos)
+
+                    tipo_frecuencia = input("Que frecuencia desea obtener (frecuencia absoluta/frecuencia acumulada/frecuencia relativa/todas): ")
+                    if tipo_frecuencia == "todas":
+                        resultado = {}
+                        for key in oprs_intervalos_f.keys():
+                            resultado[key] = eleccion_funciones(key, oprs_intervalos_f, lista, intervalos)
+                        tipo_frecuencia += " las frecuencias"
+                    elif "frecuencia" not in tipo_frecuencia:
+                        print("Tipo de frecuencia no valido")
+                        continue
+                    else:
+                        resultado = eleccion_funciones(tipo_frecuencia, oprs_intervalos_f, lista, intervalos)
+                    resultado = presentacion_dicts(resultado)
+                    print(f"El resultado de {tipo_frecuencia} es:\n{resultado}")
+                    break
+                except ValueError:
+                    print("Ingrese sus datos en el formato correcto")
+
+        continuar = input("¿Desea realizar otra operacion? (si/no): ").lower()
+        if continuar in "no":
+            break

@@ -45,6 +45,11 @@ actions = {
         "path": "books_dir",
         "path_file": False,
         "func": mg.book_learn,
+    },
+    "measures_central_tendency": {
+        "name": "Medidas de tendencia central",
+        "path": None,
+        "func": mg.measures_central_tendency,
     }
 }
 
@@ -82,7 +87,6 @@ async def main(page: ft.Page):
     await mg.main_menu(actions)
 
     mg.daily_check() # Verificar si es un nuevo día y resetear estados si es necesario
-    await mg.check_status_json(actions["mood"])
     await mg.check_status_json(actions["show_dues"])
     await mg.check_status_json(actions["modify_dues"])
     await mg.check_status_json(actions["write_day"])

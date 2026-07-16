@@ -9,6 +9,7 @@ from pathlib import Path
 import audio_processor
 import os
 import objects
+from utility import math_oprs
 
 
 _audio_buffer = bytearray()
@@ -35,9 +36,6 @@ def resolve_action_path(action):
         action["path"] = resolved_path
     return None
 
-# ============================================================================
-# FUNCIÓN: match_response → OBTIENE RESPUESTA BASADA EN ESTADO DE ÁNIMO
-# ============================================================================
 async def match_response(action):
     # """
     # Pregunta el estado de ánimo del usuario y muestra una respuesta coincidente.
@@ -76,8 +74,9 @@ async def duesMD_render(action):
     if choice is None:
         return None
     # choice es un objeto Due con name=file, description=heading y date=fecha
-    path = search.locate_get_file(dues_dir + "/", choice.name)
-    content = search.getMD_block(path, choice.description)
+    # `description` ahora contiene el archivo, `name` el heading
+    path = search.locate_get_file(dues_dir + "/", choice.description)
+    content = search.getMD_block(path, choice.name)
     date_text = choice.date.strip() if choice.date else ""
     render.smooth_print(date_text + "\n" + content.strip())
     return None
@@ -90,7 +89,7 @@ async def list_links_heading(path):
             if line.strip() == "":
                 continue
             _, value = search.getNH_md(line.strip())
-            utils.creating_obj_due(obj_opts, value[0], value[1], value[2])
+            utils.creating_obj_due(obj_opts, value[1], value[0], value[2])
         choice = await ask.select_option(obj_opts, messages)
         if choice is None:
             return None
@@ -181,13 +180,14 @@ async def rm_due(action):
         if choice is None:
             return None
         # choice es un objeto Due con name=file, description=heading y date=fecha
-        path_file = search.locate_get_file(action["path"] + "/", choice.name)
-        link = utils.linkHeading_md(choice.name.replace(".md", ""), choice.description)
-        complete_rm = await ask.questionSN(f"¿Quieres eliminar el pendiente '{choice.description}' del archivo '{choice.name}'?")
+        path_file = search.locate_get_file(action["path"] + "/", choice.description)
+        link = utils.linkHeading_md(choice.description.replace(".md", ""), choice.name)
+        complete_rm = await ask.questionSN(f"¿Quieres eliminar el pendiente '{choice.name}' del archivo '{choice.description}'?")
         if not complete_rm:
             return None
         rm_link = write_files.rm_MD_block(dues_file, link[2:], "[[")
-        rm_due = write_files.rm_MD_block(path_file, choice.description)
+        # El heading es ahora `choice.name`
+        rm_due = write_files.rm_MD_block(path_file, choice.name)
         if not rm_due or not rm_link:
             render.smooth_print("Sin coincidencias en el archivo del pendiente o en el archivo de links")
             return None
@@ -209,15 +209,13 @@ async def dues_manager(action):
     else:
         render.smooth_print("revisa tus condicionales chaufa")
 
-# ============================================================================
-# FUNCIÓN: main_menu → MENÚ PRINCIPAL DE BOTONES (REEMPLAZA terminal_listening)
-# ============================================================================
 async def main_menu(actions):
     # Variables para almacenar referencias de botones y estado
     button_write = None
     button_dues_show = None
     button_dues_modify = None
     button_book_learn = None
+    button_math_oprs = None
     button_exit = None
 
     # ========== HANDLERS DE BOTONES ==========
@@ -242,6 +240,13 @@ async def main_menu(actions):
         # """Ejecuta la acción de modificar pendientes"""
         try:
             await dues_manager(actions["modify_dues"])
+        except Exception as ex:
+            print(f"✗ Error: {str(ex)}")
+
+    async def on_math_oprs(e):
+        # """Ejecuta la acción de calcular medidas de tendencia central"""
+        try:
+            await measures_central_tendency()
         except Exception as ex:
             print(f"✗ Error: {str(ex)}")
 
@@ -320,6 +325,17 @@ async def main_menu(actions):
         )
     )
 
+    button_math_oprs = ft.ElevatedButton(
+        content="🧮 Operaciones matemáticas",
+        on_click=on_math_oprs,
+        width=250,
+        height=50,
+        style=ft.ButtonStyle(
+            bgcolor=ft.Colors.PURPLE_ACCENT,
+            color=ft.Colors.BLACK
+        )
+    )
+
     button_exit = ft.ElevatedButton(
         content="🚪 Salir",
         on_click=on_exit,
@@ -353,6 +369,7 @@ async def main_menu(actions):
                 button_dues_modify,
                 button_book_learn,
                 button_practice_english,
+                button_math_oprs,
                 button_exit,
             ],
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
@@ -392,19 +409,19 @@ async def main_menu(actions):
 
     # Mensaje de bienvenida
     render.smooth_print("Sistema listo. Usa los botones del panel derecho para interactuar.")
-    for key in actions:
-        if actions[key].get("path") is None:
+    for action in actions:
+        if actions[action].get("path") is None:
             continue
-        path = await check_actions_path(actions[key])
+        path = await check_actions_path(actions[action])
         if path:
-            resolve_action_path(actions[key])
+            resolve_action_path(actions[action])
 
 async def check_actions_path(action):
     # Función ASYNC porque usa diálogos de Flet
     if Path(action["path"]).exists():
         return True
     path = search.get_json_value("data/data.json", "actions_paths", action["path"])
-    if not path:
+    if not path or not Path(path).exists():
         file = "un archivo" if action["path_file"] else "una carpeta"
         act = "modificar"
         render.smooth_print(f"No tenemos {file} para {act} {action['name']}.")
@@ -429,6 +446,7 @@ async def check_actions_path(action):
             return False
     return True
 
+# mover estas dos funciones de busqueda de archivos al archivo search.py
 async def file_picker(posfix, multiple=False, prompt="Selecciona un archivo"):
     picker = ft.FilePicker()
     path = await picker.pick_files(dialog_title=prompt, allowed_extensions=posfix, allow_multiple=multiple)
@@ -488,12 +506,11 @@ async def book_learn(action):
             write_files.wadd_file(action["path"] + "/" + file_name, content)
             render.smooth_print("Aprendizaje de libro agregado exitosamente.")
 
+# en esta funcion conectaremos la funcion audio_manager() y talk_audio_ia() que estaran en audio_processor.py
 async def practice_english():
     await audio_manager()
 
-# ============================================================================
-# FUNCIÓN: process_recorded_audio → PROCESA EL AUDIO GRABADO
-# ============================================================================
+# mover esta funcion al archivo audio_processor.py y llamarla desde manager.py
 async def talk_audio_ia(path):
     # """Procesa el audio grabado, lo transcribe y muestra la respuesta del coach."""
     # try:
@@ -588,6 +605,7 @@ async def talk_audio_ia(path):
     # except Exception as ex:
     #     render.smooth_print(f"[ERROR] Error procesando audio: {ex}")
 
+# igual mover esta funcion al archivo audio_processor.py y llamarla desde manager.py
 async def audio_manager():
     buttons = []
     current_audio_path = None
@@ -734,3 +752,53 @@ async def audio_manager():
     _output_column.controls.append(btn_row)
     _page.update()
 
+async def measures_central_tendency():
+    # Función ASYNC porque usa diálogos de Flet
+    while True:
+        messages.set_select_msj("Selecciona la medida de tendencia central que quieres calcular:")
+        opr = await ask.select_option(["Media", "Mediana", "Moda", "Todas"], messages)
+        if opr is None:
+            render.smooth_print("Cálculo de medidas de tendencia central cancelado.")
+            return None
+        while True:
+            data = await ask.open_question("Ingresa los números separados por comas (ej: 1,2,3,4): ")
+            if not data:
+                render.smooth_print("No se ingresaron datos")
+                continue
+            if data.lower() == "exit":
+                render.smooth_print("Cálculo de medidas de tendencia central cancelado.")
+                return None
+            try:
+                numbers = [float(num.strip()) for num in data.split(",")]
+                break
+            except ValueError:
+                render.smooth_print("Error: Asegúrate de ingresar solo números válidos separados por comas.")
+                continue
+
+        if opr == "Todas":
+            measures = math_oprs.calculate_all_measures(numbers)
+            if measures['mode'] is None:
+                measures['mode'] = "No hay moda"
+            else:
+                measures['mode'] = ", ".join(map(str, measures['mode']))  # Convertir la lista de modas a cadena
+            result = f"Media: {measures['mean']}\nMediana: {measures['median']}\nModa: {measures['mode']}"
+        else:
+            if opr == "Media":
+                value = math_oprs.mean(numbers)
+            elif opr == "Mediana":
+                value = math_oprs.median(numbers)
+            elif opr == "Moda":
+                value = math_oprs.mode(numbers)
+                if value is None:
+                    value = "No hay moda"
+                else:
+                    value = ", ".join(map(str, value))  # Convertir la lista de modas a cadena
+            else:
+                render.smooth_print("Operación no válida")
+                return None
+            result = f"{opr}: {value}"
+        render.smooth_print(result)
+        another = await ask.questionSN("¿Quieres calcular otra medida de tendencia central?")
+        if not another:
+            render.smooth_print("Cálculo de medidas de tendencia central finalizado.")
+            return None

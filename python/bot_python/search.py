@@ -1,5 +1,7 @@
 import json
 from pathlib import Path
+import flet as ft
+import render
 
 def search_p(line, pattern):
     responses = line.split("|", 1)
@@ -68,3 +70,24 @@ def locate_files_suffix(main_path, suffix):
         file_name = file_name.split(".")[0]
         files[files.index(file)] = file_name
     return files
+
+async def file_picker(posfix, data_base, multiple=False, prompt="Selecciona un archivo"):
+    picker = ft.FilePicker()
+    path = await picker.pick_files(dialog_title=prompt, allowed_extensions=posfix, allow_multiple=multiple)
+    if path:
+        file_path = path[0].path
+        data_base.save_file_path(file_path)
+        render.smooth_print("Ruta de archivo seleccionada exitosamente")
+    else:
+        pass
+
+async def folder_picker(data_base, prompt="Selecciona una carpeta"):
+    picker = ft.FilePicker()
+    # async def main(page: ft.Page):
+    path = await picker.get_directory_path(dialog_title=prompt)
+    if path:
+        folder_path = path
+        data_base.save_dir_path(folder_path)
+        render.smooth_print("Ruta de carpeta seleccionada exitosamente")
+    else:
+        pass

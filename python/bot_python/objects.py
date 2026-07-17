@@ -6,20 +6,27 @@ class DataBase_Path:
         # Aquí preparamos la memoria. Al principio, no hay ruta. Obvio.
         self.folder_path = None
         self.file_path = None
+        self.audio_path = None
 
-    def save_dir_path(self, new_path):
+    def save_dir_path(self, path):
         # Un método (acción) para guardar un dato en su memoria.
-        self.folder_path = new_path
+        self.folder_path = path
 
     def get_dir_path(self):
         # Otro método para extraer la información cuando la necesites.
         return self.folder_path
 
-    def save_file_path(self, new_path):
-        self.file_path = new_path
+    def save_file_path(self, path):
+        self.file_path = path
 
     def get_file_path(self):
         return self.file_path
+
+    def save_audio_path(self, path):
+        self.audio_path = path
+
+    def get_audio_path(self):
+        return self.audio_path
 
 class Messages:
     def __init__(self):

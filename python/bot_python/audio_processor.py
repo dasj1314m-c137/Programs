@@ -24,7 +24,6 @@ async def transcribe_audio(audio_path: str) -> str:
     text = await asyncio.to_thread(transcribe)
     return text.strip()
 
-
 # Send transcribed text to local Ollama Llama and return the reply
 # Comentarios en español, nombres en inglés
 async def talk_with_coach(messages):
@@ -48,6 +47,7 @@ async def talk_with_coach(messages):
 
     reply = await asyncio.to_thread(call_ollama)
     return reply
+
 
 if __name__ == "__main__":
     async def test():

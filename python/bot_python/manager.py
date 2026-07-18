@@ -12,10 +12,11 @@ import objects
 from utility import math_oprs
 
 class BotManager:
-    def __init__(self, page: ft.Page, output_column: ft.Column, audio_recorder):
+    def __init__(self, page: ft.Page, output_column: ft.Column, audio_recorder, responsive=None):
         self.page = page
         self.output_column = output_column
         self.audio_recorder = audio_recorder
+        self.responsive = responsive
 
         self.audio_buffer = bytearray()
         self.history_ia_bot = []
@@ -520,18 +521,12 @@ class BotManager:
 
 
     async def main_menu(self, actions):
-        # Variables para almacenar referencias de botones y estado
-        button_write = None
-        button_dues_show = None
-        button_dues_modify = None
-        button_book_learn = None
-        button_math_oprs = None
-        button_exit = None
+        self.page.drawer = None
+        self.page.appbar = None
 
         # ========== HANDLERS DE BOTONES ==========
 
         async def on_write_day(e):
-            # """Ejecuta la acción de escribir en diario"""
             try:
                 result = await self.writing_files(actions["write_day"])
                 if result:
@@ -540,184 +535,170 @@ class BotManager:
                 print(f"✗ Error: {str(ex)}")
 
         async def on_show_dues(e):
-            # """Ejecuta la acción de ver pendientes"""
-            # try:
             await self.duesMD_render(actions["show_dues"])
-            # except Exception as ex:
-            #     print(f"✗ Error: {str(ex)}")
 
         async def on_modify_dues(e):
-            # """Ejecuta la acción de modificar pendientes"""
             try:
                 await self.dues_manager(actions["modify_dues"])
             except Exception as ex:
                 print(f"✗ Error: {str(ex)}")
 
         async def on_math_oprs(e):
-            # """Ejecuta la acción de calcular medidas de tendencia central"""
             try:
                 await self.measures_central_tendency()
             except Exception as ex:
                 print(f"✗ Error: {str(ex)}")
 
         async def on_book_learn(e):
-            # """Ejecuta la acción de agregar aprendizajes de libros"""
             try:
                 await self.book_learn(actions["book_learn"])
             except Exception as ex:
                 print(f"✗ Error: {str(ex)}")
 
         async def on_practice_english(e):
-            # """Ejecuta la acción de practica speaking english"""
             try:
                 await self.practice_english()
             except Exception as ex:
                 print(f"✗ Error: {str(ex)}")
 
         async def on_exit(e):
-            # """Cierra la aplicación"""
             await self.page.window.close()
 
+        async def close_drawer(e=None):
+            await self.page.close_drawer()
+
+        def on_menu_item_click(handler):
+            async def handler_wrapper(e):
+                await close_drawer()
+                await handler(e)
+            return handler_wrapper
+
+        is_mobile = self.responsive.is_mobile if self.responsive else False
+        btn_w = self.responsive.get_button_width() if self.responsive else 250
+        btn_h = self.responsive.get_button_height() if self.responsive else 50
+        title_sz = self.responsive.get_title_size() if self.responsive else 20
+        content_pad = self.responsive.get_content_padding() if self.responsive else 20
+
         # ========== CREAR BOTONES ==========
+        menu_items = [
+            ("📝 Escribir día", on_write_day, ft.Colors.BLUE_ACCENT),
+            ("📋 Ver pendientes", on_show_dues, ft.Colors.AMBER_ACCENT),
+            ("✏️ Modificar pendientes", on_modify_dues, ft.Colors.ORANGE_ACCENT),
+            ("📚 Aprendizajes de libros", on_book_learn, ft.Colors.GREEN_ACCENT),
+            ("🎤 Practicas ingles", on_practice_english, ft.Colors.YELLOW_ACCENT),
+            ("🧮 Operaciones matemáticas", on_math_oprs, ft.Colors.PURPLE_ACCENT),
+            ("🚪 Salir", on_exit, ft.Colors.RED_ACCENT),
+        ]
 
-        button_write = ft.ElevatedButton(
-            content="📝 Escribir día",
-            on_click=on_write_day,
-            width=250,
-            height=50,
-            style=ft.ButtonStyle(
-                bgcolor=ft.Colors.BLUE_ACCENT,
-                color=ft.Colors.BLACK
+        def make_button(label, handler, color):
+            return ft.ElevatedButton(
+                content=label,
+                on_click=on_menu_item_click(handler),
+                width=btn_w,
+                height=btn_h,
+                style=ft.ButtonStyle(bgcolor=color, color=ft.Colors.BLACK)
             )
+
+        buttons = [make_button(label, handler, color) for label, handler, color in menu_items]
+
+        menu_column = ft.Column(
+            controls=[
+                ft.Text(
+                    "🤖 MENÚ PRINCIPAL",
+                    size=title_sz,
+                    weight=ft.FontWeight.BOLD,
+                    color=ft.Colors.GREEN_ACCENT
+                ),
+                ft.Divider(height=10, color=ft.Colors.GREEN_ACCENT),
+                ft.Text(
+                    "Selecciona una acción:",
+                    size=14,
+                    color=ft.Colors.GREY_300
+                ),
+                *buttons,
+            ],
+            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+            spacing=10
         )
 
-        button_dues_show = ft.ElevatedButton(
-            content="📋 Ver pendientes",
-            on_click=on_show_dues,
-            width=250,
-            height=50,
-            style=ft.ButtonStyle(
-                bgcolor=ft.Colors.AMBER_ACCENT,
-                color=ft.Colors.BLACK
-            )
-        )
-
-        button_dues_modify = ft.ElevatedButton(
-            content="✏️ Modificar pendientes",
-            on_click=on_modify_dues,
-            width=250,
-            height=50,
-            style=ft.ButtonStyle(
-                bgcolor=ft.Colors.ORANGE_ACCENT,
-                color=ft.Colors.BLACK
-            )
-        )
-
-        button_book_learn = ft.ElevatedButton(
-            content="📚 Aprendizajes de libros",
-            on_click=on_book_learn,
-            width=250,
-            height=50,
-            style=ft.ButtonStyle(
-                bgcolor=ft.Colors.GREEN_ACCENT,
-                color=ft.Colors.BLACK
-            )
-        )
-
-        button_practice_english = ft.ElevatedButton(
-            content="🎤 Practicas ingles",
-            on_click=on_practice_english,
-            width=250,
-            height=50,
-            style=ft.ButtonStyle(
-                bgcolor=ft.Colors.YELLOW_ACCENT,
-                color=ft.Colors.BLACK
-            )
-        )
-
-        button_math_oprs = ft.ElevatedButton(
-            content="🧮 Operaciones matemáticas",
-            on_click=on_math_oprs,
-            width=250,
-            height=50,
-            style=ft.ButtonStyle(
-                bgcolor=ft.Colors.PURPLE_ACCENT,
-                color=ft.Colors.BLACK
-            )
-        )
-
-        button_exit = ft.ElevatedButton(
-            content="🚪 Salir",
-            on_click=on_exit,
-            width=250,
-            height=50,
-            style=ft.ButtonStyle(
-                bgcolor=ft.Colors.RED_ACCENT,
-                color=ft.Colors.BLACK
-            )
-        )
-
-        # ========== CREAR PANEL DE MENÚ ==========
-
-        menu_panel = ft.Container(
-            content=ft.Column(
-                controls=[
-                    ft.Text(
-                        "🤖 MENÚ PRINCIPAL",
-                        size=20,
-                        weight=ft.FontWeight.BOLD,
-                        color=ft.Colors.GREEN_ACCENT
-                    ),
-                    ft.Divider(height=10, color=ft.Colors.GREEN_ACCENT),
-                    ft.Text(
-                        "Selecciona una acción:",
-                        size=14,
-                        color=ft.Colors.GREY_300
-                    ),
-                    button_write,
-                    button_dues_show,
-                    button_dues_modify,
-                    button_book_learn,
-                    button_practice_english,
-                    button_math_oprs,
-                    button_exit,
-                ],
-                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                spacing=10
-            ),
-            width=300,
-            padding=20,
-            border_radius=10,
-            bgcolor=ft.Colors.GREY_900,
-            margin=10
-        )
-
-        # Construir layout dividido en dos secciones: mensajes grandes a la izquierda
-        # y menú de acciones compacto a la derecha.
         output_container = ft.Container(
             content=self.output_column,
             border_radius=10,
-            padding=20,
+            padding=content_pad,
             expand=True,
             bgcolor="#1e1e1e",
             margin=10,
         )
 
-        self.page.add(
-            ft.Row(
+        if is_mobile:
+
+            async def handle_show_drawer(e):
+                await self.page.show_drawer()
+
+            async def handle_drawer_change(e):
+                await self.page.close_drawer()
+            # ========== MÓVIL: NavigationDrawer + AppBar ==========
+            drawer = ft.NavigationDrawer(
+                on_change=handle_drawer_change,
                 controls=[
-                    output_container,
-                    menu_panel,
+                    ft.Container(
+                        content=menu_column,
+                        padding=20,
+                        bgcolor=ft.Colors.GREY_900,
+                    )
                 ],
-                expand=True,
-                alignment=ft.MainAxisAlignment.START,
-                vertical_alignment=ft.CrossAxisAlignment.START,
-                spacing=10,
+                bgcolor=ft.Colors.GREY_900,
             )
-        )
+
+            self.page.drawer = drawer
+
+            self.page.appbar = ft.AppBar(
+                leading=ft.IconButton(
+                    icon=ft.Icons.MENU,
+                    icon_color=ft.Colors.GREEN_ACCENT,
+                    icon_size=28,
+                    tooltip="Menú",
+                    on_click=handle_show_drawer,
+                ),
+                title=ft.Text(
+                    "🤖 Bot",
+                    color=ft.Colors.GREEN_ACCENT,
+                    size=18,
+                    weight=ft.FontWeight.BOLD,
+                ),
+                bgcolor=ft.Colors.GREY_900,
+                center_title=False,
+            )
+
+            self.page.add(
+                ft.SafeArea(
+                    content=output_container,
+                    expand=True,
+                )
+            )
+        else:
+            # ========== DESKTOP: sidebar fijo a la derecha ==========
+            menu_panel = ft.Container(
+                content=menu_column,
+                width=300,
+                padding=20,
+                border_radius=10,
+                bgcolor=ft.Colors.GREY_900,
+                margin=10,
+            )
+
+            self.page.add(
+                ft.Row(
+                    controls=[output_container, menu_panel],
+                    expand=True,
+                    alignment=ft.MainAxisAlignment.START,
+                    vertical_alignment=ft.CrossAxisAlignment.START,
+                    spacing=10,
+                )
+            )
+
         self.page.update()
 
-        # Mensaje de bienvenida
         render.smooth_print("Sistema listo. Usa los botones del panel derecho para interactuar.")
         for action in actions:
             if actions[action].get("path") is None:

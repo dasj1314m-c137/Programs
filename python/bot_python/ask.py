@@ -10,8 +10,10 @@ from objects import OptionsManager
 # ============================================================================
 # Funciones auxiliares para obtener la referencia a la página desde render
 def _get_page():
-    # """Retorna la página de Flet guardada en render"""
     return render._page
+
+def _get_responsive():
+    return render._responsive
 
 # ============================================================================
 # FUNCIÓN: questionSN → PREGUNTA SÍ/NO INTEGRADA EN LA VENTANA
@@ -113,8 +115,11 @@ async def select_option(options_or_manager, obj_message, opt_other=False):
         ]
 
     # Contenedor que agrupa las opciones
-    if len(sorted_options) > 5:
-        options_column = ft.Column(controls=radio_controls, spacing=6, scroll=ft.ScrollMode.ALWAYS, height=180)
+    responsive = _get_responsive()
+    list_height = responsive.get_option_list_height(len(sorted_options)) if responsive else None
+
+    if list_height:
+        options_column = ft.Column(controls=radio_controls, spacing=6, scroll=ft.ScrollMode.ALWAYS, height=list_height)
     else:
          options_column = ft.Column(controls=radio_controls, spacing=6)
 
@@ -364,6 +369,9 @@ async def ask_date_hybrid(question):
     )
 
     # Bloque que agrupa input + botones
+    responsive = _get_responsive()
+    input_block_width = None if (responsive and responsive.is_mobile) else 480
+
     date_input_block = ft.Card(
         content=ft.Container(
             content=ft.Column(
@@ -371,7 +379,7 @@ async def ask_date_hybrid(question):
                 spacing=10
             ),
             padding=10,
-            width=480,
+            width=input_block_width,
             bgcolor=ft.Colors.BLACK,
             border_radius=5
         ),

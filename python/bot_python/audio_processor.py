@@ -1,6 +1,9 @@
 import asyncio
 from pywhispercpp.model import Model
 import ollama
+import utils
+import render
+import flet as ft
 
 
 # Transcribe audio file to text using pywhispercpp
@@ -48,6 +51,81 @@ async def talk_with_coach(messages):
     reply = await asyncio.to_thread(call_ollama)
     return reply
 
+
+class AudioRecorder:
+    def __init__(self, audio_recoder):
+        self.audio_recorder = audio_recoder
+        self.audio_buffer = bytearray()
+        self.data_base = None
+        self.audio_path = None
+
+        self.func = None
+        self.action = False
+        self.terminate = False
+
+        self.button = ft.IconButton(
+            icon=ft.Icons.MIC,
+            icon_color=ft.Colors.GREEN_ACCENT,
+            bgcolor=ft.Colors.BLACK,
+            on_click=None,
+            data=False
+        )
+
+    async def func_to_use(self):
+        await self.func(self.data_base)
+
+    async def record_audio(self):
+        if not self.button.data:
+            self.terminate = False
+            self.button.data = True
+            self.button.icon = ft.Icons.STOP_CIRCLE
+            self.button.icon_color = ft.Colors.RED
+            self.button.update()
+
+            self.audio_buffer.clear()
+            render.smooth_print("Iniciando grabacion..")
+            stamp_path = utils.create_stamp_path("record", "wav")
+            current_audio_path = f"audios/{stamp_path}"
+            self.audio_path = current_audio_path
+            self.data_base.save_audio_path(self.audio_path)
+            await self.audio_recorder.start_recording(self.audio_path)
+
+        else:
+            try:
+                self.button.data = False
+                self.button.icon = ft.Icons.MIC
+                self.button.icon_color = ft.Colors.GREEN_ACCENT
+                self.button.update()
+
+                if self.audio_path is None:
+                    print("Sin path valiedo")
+                    return
+
+                render.smooth_print("Grabacion terminada")
+                await self.audio_recorder.stop_recording()
+
+                raw_bytes = bytes(self.audio_buffer)
+                self.audio_buffer.clear()
+
+                if not raw_bytes:
+                    print("sin entrada de audio")
+                    return
+
+                utils.save_pcm_to_wav(raw_bytes, self.audio_path)
+
+                if self.action:
+                    await self.func_to_use()
+
+                self.terminate = True
+
+            except FileNotFoundError as error_404:
+                print(f"Error 404, {error_404}")
+            except Exception as ex:
+                print(f"🚨 lol: {ex}")
+
+    def make_button(self, func=record_audio):
+        self.button.on_click = func
+        return self.button
 
 if __name__ == "__main__":
     async def test():

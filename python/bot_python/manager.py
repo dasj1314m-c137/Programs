@@ -12,16 +12,15 @@ import objects
 from utility import math_oprs
 
 class BotManager:
-    def __init__(self, page: ft.Page, output_column: ft.Column, audio_recorder, responsive=None):
+    def __init__(self, page: ft.Page, output_column: ft.Column, recorder, data_base, responsive=None):
         self.page = page
         self.output_column = output_column
-        self.audio_recorder = audio_recorder
+        self.recorder = recorder
         self.responsive = responsive
 
-        self.audio_buffer = bytearray()
         self.history_ia_bot = []
 
-        self.data_base = objects.DataBase_Path()
+        self.data_base = data_base
         self.messages = objects.Messages()
 
 
@@ -316,76 +315,24 @@ class BotManager:
 
     async def audio_manager(self, func):
         buttons = []
-        current_audio_path = None
 
-        async def toggle_recording(e):
-            is_recording = e.control.data
-            nonlocal current_audio_path
-
-            if not is_recording:
-                e.control.data = True
-                e.control.icon = ft.Icons.STOP_CIRCLE
-                e.control.icon_color = ft.Colors.RED
-                e.control.update()
-
-                self.audio_buffer.clear()
-                render.smooth_print("Iniciando grabacion..")
-                current_audio_path = utils.create_stamp_path("record", "wav")
-                current_audio_path = f"audios/{current_audio_path}"
-                await self.audio_recorder.start_recording(output_path=current_audio_path)
-
-
-            else:
-                try:
-                    # Modo: DETENER GRABACIÓN
-                    e.control.data = False
-                    e.control.icon = ft.Icons.MIC
-                    e.control.icon_color = ft.Colors.GREEN_ACCENT
-                    e.control.update()
-
-                    render.smooth_print("Grabacion terminada")
-                    await self.audio_recorder.stop_recording()
-
-                    raw_bytes = bytes(self.audio_buffer)
-                    self.audio_buffer.clear()
-
-                    if not raw_bytes:
-                        render.smooth_print("Sin entrada de audio")
-                        return
-
-                    utils.save_pcm_to_wav(raw_bytes, current_audio_path)
-
-                    self.data_base.save_audio_path(current_audio_path)
-                    await func(self.data_base)
-
-                    self.output_column.controls.remove(btn_row)
-                    self.output_column.controls.append(btn_row)
-                    self.page.update()
-
-                except Exception as ex:
-                    print(f"🚨 ¡TE CACHÉ! El grabador explotó por esto: {ex}")
+        async def toogle_recording(e):
+            await self.recorder.record_audio()
+            if self.recorder.terminate:
+                self.output_column.controls.remove(btn_row)
+                self.page.update()
+                await func(self.data_base)
+                self.output_column.controls.append(btn_row)
+                self.page.update()
 
         async def cancel(e):
-            self.audio_buffer.clear()
+            self.recorder.audio_buffer.clear()
             self.history_ia_bot.clear()
             render.smooth_print("Chat cerrado nos vemos")
             self.output_column.controls.remove(btn_row)
             self.page.update()
 
-        btn_grabar = ft.IconButton(
-            icon=ft.Icons.MIC,
-            icon_color=ft.Colors.GREEN_ACCENT,
-            bgcolor=ft.Colors.BLACK,
-            on_click=toggle_recording,
-            data=False
-        )
-
-        # btn_stop = ft.IconButton(
-        #     icon=ft.Icons.STOP_CIRCLE,
-        #     icon_color=ft.Colors.RED,
-        #     bgcolor=ft.Colors.BLACK,
-        #     on_click=handle_stop
-        # )
+        btn_grabar = self.recorder.make_button(toogle_recording)
 
         btn_cancel = ft.ElevatedButton(
             content=ft.Text("Cancel"),
@@ -394,24 +341,8 @@ class BotManager:
             on_click=cancel
         )
 
-        # btn_pause = ft.IconButton(
-        #     icon=ft.Icons.PAUSE,
-        #     icon_color=ft.Colors.GREEN_ACCENT,
-        #     bgcolor=ft.Colors.BLACK,
-        #     on_click=handle_pause
-        # )
-        # btn_resume = ft.IconButton(
-        #     icon=ft.Icons.PLAY_ARROW,
-        #     icon_color=ft.Colors.GREEN_ACCENT,
-        #     bgcolor=ft.Colors.BLACK,
-        #     on_click=handle_resume
-        # )
-
         buttons.append(btn_grabar)
         buttons.append(btn_cancel)
-        # buttons.append(btn_stop)
-        # buttons.append(btn_pause)
-        # buttons.append(btn_resume)
 
         btn_row = ft.Row(
             controls=buttons,
@@ -427,6 +358,10 @@ class BotManager:
         # """Procesa el audio grabado, lo transcribe y muestra la respuesta del coach."""
         # try:
         path = data_base.get_audio_path()
+        if path is None:
+            render.smooth_print("No se encontró la ruta del audio grabado.")
+            self.page.update()
+            return
 
         if len(self.history_ia_bot) == 0:
             instructions_bot = {
@@ -519,7 +454,6 @@ class BotManager:
     async def practice_english(self):
         await self.audio_manager(self.talk_audio_ia)
 
-
     async def main_menu(self, actions):
         self.page.drawer = None
         self.page.appbar = None
@@ -556,10 +490,10 @@ class BotManager:
                 print(f"✗ Error: {str(ex)}")
 
         async def on_practice_english(e):
-            try:
-                await self.practice_english()
-            except Exception as ex:
-                print(f"✗ Error: {str(ex)}")
+            # try:
+            await self.practice_english()
+            # except Exception as ex:
+            #     print(f"✗ Error: {str(ex)}")
 
         async def on_exit(e):
             await self.page.window.close()

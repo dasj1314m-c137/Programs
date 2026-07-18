@@ -3,6 +3,8 @@ import flet as ft
 import render
 import flet_audio_recorder as far
 from responsive import ResponsiveLayout
+import audio_processor
+import objects
 
 acts = ["Leer", "Entrenar box", "Meditar", "Editar videos", "Programar", "Escribir", "Aburrirse", "Jugar ajedrez", "Aprender"]
 
@@ -70,8 +72,7 @@ async def main(page: ft.Page):
         expand=True,
         auto_scroll=True
     )
-
-    bot_manager = mg.BotManager(page, terminal_output, None, responsive)
+    recorder = audio_processor.AudioRecorder(None)
 
     audio_recorder = far.AudioRecorder(
         configuration=far.AudioRecorderConfiguration(
@@ -79,10 +80,16 @@ async def main(page: ft.Page):
             sample_rate=16000,
             channels=1
         ),
-        on_stream=lambda e: bot_manager.audio_buffer.extend(e.chunk)
+        on_stream=lambda e: recorder.audio_buffer.extend(e.chunk)
     )
 
-    bot_manager.audio_recorder = audio_recorder
+
+    # audio_processor.AudioRecorder(audio_recorder)
+    data_base = objects.DataBase_Path()
+    recorder.audio_recorder = audio_recorder
+    recorder.data_base = data_base
+    bot_manager = mg.BotManager(page, terminal_output, recorder, data_base, responsive)
+
 
     actions["mood"]["func"] = bot_manager.match_response
     actions["write_day"]["func"] = bot_manager.writing_files

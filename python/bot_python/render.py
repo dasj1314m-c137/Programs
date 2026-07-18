@@ -8,24 +8,18 @@ import asyncio
 # Estos almacenarán referencias a los componentes gráficos para que las
 # funciones de UI puedan acceder a ellos sin pasar parámetros constantemente.
 
-_page = None  # Referencia a la página principal de Flet
-_output_widget = None  # Widget donde escribiremos los mensajes (ft.Column o ft.ListView)
+_page = None
+_output_widget = None
+_responsive = None
 
 # ============================================================================
 # FUNCIÓN DE INICIALIZACIÓN (LLÁMALA DESDE bot.py)
 # ============================================================================
-def init_render(page: ft.Page, output_widget: ft.Column):
-    # """
-    # Inicializa las referencias globales de Flet.
-    # DEBES LLAMAR A ESTO AL INICIO DE main() EN bot.py
-
-    # Args:
-    #     page: La página de Flet (ft.Page)
-    #     output_widget: El widget donde mostrar mensajes (ft.Column o ft.ListView)
-    # """
-    global _page, _output_widget
+def init_render(page: ft.Page, output_widget: ft.Column, responsive=None):
+    global _page, _output_widget, _responsive
     _page = page
     _output_widget = output_widget
+    _responsive = responsive
 
 # ============================================================================
 # FUNCIÓN: smooth_print → ESCRIBE EN LA GUI
@@ -158,7 +152,8 @@ async def smooth_chat_input(prompt: str):
     # Primero, mostrar la pregunta como un mensaje normal
     smooth_print(prompt)
 
-    # Crear el campo de entrada
+    max_lines = _responsive.get_input_max_lines() if _responsive else 7
+
     input_field = ft.TextField(
         autofocus=True,
         multiline=True,
@@ -169,7 +164,7 @@ async def smooth_chat_input(prompt: str):
         bgcolor=ft.Colors.BLACK,
         filled=True,
         border_color=ft.Colors.GREEN_ACCENT,
-        max_lines=7
+        max_lines=max_lines
     )
 
     # Crear el botón de envío con icono

@@ -680,7 +680,7 @@ class BotManager:
             # ========== DESKTOP: sidebar fijo a la derecha ==========
             menu_panel = ft.Container(
                 content=menu_column,
-                width=300,
+                width=290,
                 padding=20,
                 border_radius=10,
                 bgcolor=ft.Colors.GREY_900,

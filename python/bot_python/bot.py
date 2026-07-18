@@ -2,6 +2,7 @@ import manager as mg
 import flet as ft
 import render
 import flet_audio_recorder as far
+from responsive import ResponsiveLayout
 
 acts = ["Leer", "Entrenar box", "Meditar", "Editar videos", "Programar", "Escribir", "Aburrirse", "Jugar ajedrez", "Aprender"]
 
@@ -57,22 +58,21 @@ actions = {
 async def main(page: ft.Page):
 
     page.title = "Bot"
-    page.window_width = 1200
-    page.window_height = 700
-    page.window_resizable = True
-    page.vertical_alignment = ft.MainAxisAlignment.START
+    page.window.width = 800
+    page.window.height = 650
+    page.window.resizable = True
+    page.vertical_alignment = ft.MainAxisAlignment.CENTER
 
-    # 1. Creamos el contenedor para la Terminal Visual
+    responsive = ResponsiveLayout(page)
+
     terminal_output = ft.Column(
         scroll=ft.ScrollMode.ADAPTIVE,
         expand=True,
         auto_scroll=True
     )
 
-    # 2. Inicializamos el manager sin el grabador de audio para resolver la dependencia circular
-    bot_manager = mg.BotManager(page, terminal_output, None)
+    bot_manager = mg.BotManager(page, terminal_output, None, responsive)
 
-    # 3. Creamos el grabador de audio apuntando directamente al buffer de la instancia de BotManager
     audio_recorder = far.AudioRecorder(
         configuration=far.AudioRecorderConfiguration(
             encoder=far.AudioEncoder.PCM16BITS,
@@ -82,10 +82,8 @@ async def main(page: ft.Page):
         on_stream=lambda e: bot_manager.audio_buffer.extend(e.chunk)
     )
 
-    # Inyectamos la referencia del grabador ya configurado de vuelta al manager
     bot_manager.audio_recorder = audio_recorder
 
-    # 4. Asignamos los métodos de la instancia de BotManager a nuestro diccionario de acciones
     actions["mood"]["func"] = bot_manager.match_response
     actions["write_day"]["func"] = bot_manager.writing_files
     actions["show_dues"]["func"] = bot_manager.duesMD_render
@@ -93,14 +91,20 @@ async def main(page: ft.Page):
     actions["book_learn"]["func"] = bot_manager.book_learn
     actions["measures_central_tendency"]["func"] = bot_manager.measures_central_tendency
 
-    # Inicializamos renders y agregamos servicios
-    render.init_render(page, terminal_output)
+    render.init_render(page, terminal_output, responsive)
     page.services.append(audio_recorder)
 
-    # Mostrar menú principal con botones usando la instancia del BotManager
+    def rebuild_layout():
+        page.controls.clear()
+        page.drawer = None
+        page.appbar = None
+        page.run_task(bot_manager.main_menu, actions)
+
+    responsive.set_rebuild_callback(rebuild_layout)
+    page.on_resize = responsive.on_resize
+
     await bot_manager.main_menu(actions)
 
-    # Rutinas diarias de estado
     bot_manager.daily_check()
     await bot_manager.check_status_json(actions["show_dues"])
     await bot_manager.check_status_json(actions["modify_dues"])

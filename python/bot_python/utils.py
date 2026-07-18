@@ -4,6 +4,7 @@ import wave
 import render
 from datetime import datetime, timedelta
 from objects import Due
+from pathlib import Path
 
 # ============================================================================
 # FUNCIÓN: pcm_to_wav_bytes → CONVIERTE PCM A WAV EN MEMORIA
@@ -165,6 +166,14 @@ def creating_obj_due(obj_options, opt_name, opt_description=False, opt_date=Fals
     else:
         due = Due(opt_name)
     obj_options.add_due(due)
+
+def file_exists(path):
+    # Verifica si un archivo existe en la ruta dada
+    return Path(path).exists()
+
+def convert_str_path(path_str):
+    # Convierte una cadena de ruta a un objeto Path
+    return Path(path_str)
 
 if __name__ == "__main__":
     list_test = ["item1", "item2", "item3"]

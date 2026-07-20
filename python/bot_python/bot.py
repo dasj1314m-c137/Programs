@@ -54,6 +54,11 @@ actions = {
         "name": "Medidas de tendencia central",
         "path": None,
         "func": None,
+    },
+    "transcribe_action": {
+        "name": "Transcribir audio",
+        "path": None,
+        "func": None,
     }
 }
 
@@ -61,7 +66,7 @@ async def main(page: ft.Page):
 
     page.title = "Bot"
     page.window.width = 800
-    page.window.height = 650
+    page.window.height = 620
     page.window.resizable = True
     page.vertical_alignment = ft.MainAxisAlignment.CENTER
 
@@ -97,8 +102,10 @@ async def main(page: ft.Page):
     actions["modify_dues"]["func"] = bot_manager.dues_manager
     actions["book_learn"]["func"] = bot_manager.book_learn
     actions["measures_central_tendency"]["func"] = bot_manager.measures_central_tendency
+    actions["transcribe_action"]["func"] = bot_manager.transcribe_action
 
     render.init_render(page, terminal_output, responsive)
+    render.set_audio_deps(recorder, data_base)
     page.services.append(audio_recorder)
 
     def rebuild_layout():

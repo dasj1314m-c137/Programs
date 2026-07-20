@@ -8,7 +8,7 @@ import flet as ft
 
 # Transcribe audio file to text using pywhispercpp
 # Comentarios en español, nombres de funciones y variables en inglés
-async def transcribe_audio(audio_path: str) -> str:
+async def transcribe_audio(audio_path: str, lang='en') -> str:
     # """Transcribe el archivo WAV en `audio_path` usando pywhispercpp.
 
     # Devuelve el texto concatenado en inglés.
@@ -16,7 +16,7 @@ async def transcribe_audio(audio_path: str) -> str:
     def transcribe() -> str:
         model = Model("base")
         # La API de pywhispercpp devuelve una lista (o iterable) de segmentos con atributo .text
-        result = model.transcribe(audio_path)
+        result = model.transcribe(audio_path, language=lang)
         try:
             texts = [segment.text for segment in result]
         except Exception:
@@ -70,6 +70,8 @@ class AudioRecorder:
             on_click=None,
             data=False
         )
+        self.msj_start = None
+        self.msj_end = None
 
     async def func_to_use(self):
         await self.func(self.data_base)
@@ -83,7 +85,7 @@ class AudioRecorder:
             self.button.update()
 
             self.audio_buffer.clear()
-            render.smooth_print("Iniciando grabacion..")
+            self.msj_start = render.smooth_print("Iniciando grabacion..", True)
             stamp_path = utils.create_stamp_path("record", "wav")
             current_audio_path = f"audios/{stamp_path}"
             self.audio_path = current_audio_path
@@ -101,7 +103,7 @@ class AudioRecorder:
                     print("Sin path valiedo")
                     return
 
-                render.smooth_print("Grabacion terminada")
+                self.msj_end = render.smooth_print("Grabacion terminada", True)
                 await self.audio_recorder.stop_recording()
 
                 raw_bytes = bytes(self.audio_buffer)
@@ -127,11 +129,17 @@ class AudioRecorder:
         self.button.on_click = func
         return self.button
 
-if __name__ == "__main__":
-    async def test():
-        txt = await transcribe_audio("test_limpio.wav")
-        if txt:
-            reply = await talk_with_coach(txt)
-            print(reply)
+    def get_msjs(self):
+        return self.msj_start, self.msj_end
 
-    asyncio.run(test())
+if __name__ == "__main__":
+    # test whisper
+    from pywhispercpp.model import Model
+
+    model = Model("base")
+
+    try:
+        result = model.transcribe()
+        print("El parámetro translate existe.")
+    except TypeError as e:
+        print(e)

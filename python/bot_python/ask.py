@@ -40,7 +40,7 @@ async def questionSN(question):
 # ============================================================================
 # FUNCIÓN: open_question → PREGUNTA ABIERTA INTEGRADA EN LA VENTANA
 # ============================================================================
-async def open_question(question):
+async def open_question(question, spell=True):
     # """
     # Realiza una pregunta abierta con un campo de entrada integrado en la ventana.
 
@@ -49,11 +49,12 @@ async def open_question(question):
 
     # Args:
     #     question: La pregunta a mostrar
+    #     spell: Si True, añade botón de dictado por voz
 
     # Returns:
     #     str: El texto ingresado por el usuario, o None si cancela
     # """
-    result = await render.smooth_chat_input(question)
+    result = await render.smooth_chat_input(question, spell=spell)
     return result if result else None
 # ============================================================================
 # FUNCIÓN: select_option → SELECCIONA DE UNA LISTA EN DIÁLOGO

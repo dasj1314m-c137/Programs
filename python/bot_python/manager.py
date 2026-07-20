@@ -154,7 +154,7 @@ class BotManager:
                 if file_name is None:
                     return None
                 elif file_name == "Otro":
-                    file_name = await ask.open_question("Escribe nombre del nuevo archivo donde quieres agregar el pendiente: ")
+                    file_name = await ask.open_question("Escribe nombre del nuevo archivo donde quieres agregar el pendiente: ", spell=False)
                     create_file = await ask.questionSN("¿Quieres crear un nuevo archivo con este nombre?")
                     if create_file:
                         await search.folder_picker(self.data_base, render, ft, prompt="Selecciona la carpeta donde quieres guardar el nuevo archivo")
@@ -166,7 +166,7 @@ class BotManager:
                         break
                 path_file = search.locate_get_file(action["path"] + "/", file_name + ".md")
                 break
-            title_due = await ask.open_question("Escribe titulo del pendiente que quieres agregar: ")
+            title_due = await ask.open_question("Escribe titulo del pendiente que quieres agregar: ", spell=False)
             title_due = title_due.replace(",", "")
             date_due = await ask.ask_date_hybrid("Fecha del pendiente")
             if date_due is None:
@@ -234,7 +234,7 @@ class BotManager:
             render.smooth_print("No se encontraron archivos de aprendizajes de libros.")
             add_file = await ask.questionSN("¿Quieres agregar un archivo de aprendizajes de libros?")
             if add_file:
-                file_name = await ask.open_question("Escribe el nombre del libro: ")
+                file_name = await ask.open_question("Escribe el nombre del libro: ", spell=False)
                 content = await ask.open_question("Escribe el aprendizaje: ")
                 new_file = f"{file_name}.md"
                 write_files.wadd_file(action["path"] + "/" + new_file, content)
@@ -248,7 +248,7 @@ class BotManager:
             if choice is None:
                 return None
             elif choice == "Otro":
-                file_name = await ask.open_question("Escribe el nombre del libro: ")
+                file_name = await ask.open_question("Escribe el nombre del libro: ", spell=False)
                 content = await ask.open_question("Escribe el aprendizaje: ")
                 new_file = f"{file_name}.md"
                 write_files.wadd_file(action["path"] + "/" + new_file, content)
@@ -271,7 +271,7 @@ class BotManager:
                 render.smooth_print("Cálculo de medidas de tendencia central cancelado.")
                 return None
             while True:
-                data = await ask.open_question("Ingresa los números separados por comas (ej: 1,2,3,4): ")
+                data = await ask.open_question("Ingresa los números separados por comas (ej: 1,2,3,4): ", spell=False)
                 if not data:
                     render.smooth_print("No se ingresaron datos")
                     continue
@@ -451,6 +451,30 @@ class BotManager:
         except Exception as ex:
             print(f"algo salio mal ->: {ex}")
 
+    async def transcribe_action(self):
+        await self.audio_manager(self._transcribe_callback)
+
+    async def _transcribe_callback(self, data_base):
+        path = data_base.get_audio_path()
+        if path is None:
+            render.smooth_print("No se encontró la ruta del audio grabado.")
+            return
+        render_transcribe = render.smooth_print("Transcribiendo audio...", get_msj=True)
+        transcribed_text = await audio_processor.transcribe_audio(path, lang='es')
+        if not transcribed_text or transcribed_text.strip() == "":
+            render.smooth_print("No se detectó audio en la grabación")
+            return
+        start_msj, end_msj = self.recorder.get_msjs()
+        self.output_column.controls.remove(start_msj)
+        self.output_column.controls.remove(end_msj)
+        self.output_column.controls.remove(render_transcribe)
+        render.smooth_print("Transcripcion:")
+        render.smooth_print(transcribed_text)
+        try:
+            os.remove(path)
+        except Exception as ex:
+            print(f"Error al eliminar audio: {ex}")
+
     async def practice_english(self):
         await self.audio_manager(self.talk_audio_ia)
 
@@ -495,6 +519,12 @@ class BotManager:
             # except Exception as ex:
             #     print(f"✗ Error: {str(ex)}")
 
+        async def on_transcribe_action(e):
+            try:
+                await self.transcribe_action()
+            except Exception as ex:
+                print(f"✗ Error: {str(ex)}")
+
         async def on_exit(e):
             await self.page.window.close()
 
@@ -521,6 +551,7 @@ class BotManager:
             ("📚 Aprendizajes de libros", on_book_learn, ft.Colors.GREEN_ACCENT),
             ("🎤 Practicas ingles", on_practice_english, ft.Colors.YELLOW_ACCENT),
             ("🧮 Operaciones matemáticas", on_math_oprs, ft.Colors.PURPLE_ACCENT),
+            ("🎤 Transcribir audio", on_transcribe_action, ft.Colors.CYAN_ACCENT),
             ("🚪 Salir", on_exit, ft.Colors.RED_ACCENT),
         ]
 
@@ -552,7 +583,8 @@ class BotManager:
                 *buttons,
             ],
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-            spacing=10
+            spacing=10,
+            scroll=ft.ScrollMode.ADAPTIVE
         )
 
         output_container = ft.Container(

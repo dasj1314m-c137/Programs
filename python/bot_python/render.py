@@ -11,6 +11,8 @@ import asyncio
 _page = None
 _output_widget = None
 _responsive = None
+_audio_recorder = None
+_audio_data_base = None
 
 # ============================================================================
 # FUNCIÓN DE INICIALIZACIÓN (LLÁMALA DESDE bot.py)
@@ -21,10 +23,15 @@ def init_render(page: ft.Page, output_widget: ft.Column, responsive=None):
     _output_widget = output_widget
     _responsive = responsive
 
+def set_audio_deps(recorder, data_base):
+    global _audio_recorder, _audio_data_base
+    _audio_recorder = recorder
+    _audio_data_base = data_base
+
 # ============================================================================
 # FUNCIÓN: smooth_print → ESCRIBE EN LA GUI
 # ============================================================================
-def smooth_print(txt: str):
+def smooth_print(txt: str, get_msj=False):
     # """
     # Reemplaza al antiguo print() de terminal.
     # Ahora agrega texto animado al widget de salida en la GUI.
@@ -64,6 +71,9 @@ def smooth_print(txt: str):
     # Agregamos el Card al contenedor
     _output_widget.controls.append(message_card)
     _page.update()
+
+    if get_msj:
+        return message_card
 
 # ============================================================================
 # FUNCIÓN: show_match → MUESTRA RESULTADOS EN LA GUI
@@ -127,7 +137,7 @@ async def show_match(matches, path):
 # ============================================================================
 # FUNCIÓN: smooth_chat_input → INPUT INTEGRADO EN LA CAJA NEGRA
 # ============================================================================
-async def smooth_chat_input(prompt: str):
+async def smooth_chat_input(prompt: str, spell=False):
     # """
     # Crea un campo de entrada integrado en la ventana principal (no un diálogo).
 
@@ -141,6 +151,7 @@ async def smooth_chat_input(prompt: str):
 
     # Args:
     #     prompt: El texto/pregunta a mostrar antes del campo de entrada
+    #     spell: Si True y hay grabador disponible, añade botón de dictado
 
     # Returns:
     #     str: El texto ingresado por el usuario, o None si cancela
@@ -180,6 +191,38 @@ async def smooth_chat_input(prompt: str):
         spacing=8,
         alignment=ft.MainAxisAlignment.CENTER
     )
+
+    if spell and _audio_recorder and _audio_data_base:
+        is_transcribing = False
+
+        async def on_dictation_click(e):
+            nonlocal is_transcribing
+            if is_transcribing:
+                return
+            await _audio_recorder.record_audio()
+            if _audio_recorder.terminate:
+                is_transcribing = True
+                path = _audio_data_base.get_audio_path()
+                if path:
+                    msj_transcribe = smooth_print("⚙️ Transcribiendo...", True)
+                    _page.update()
+                    import audio_processor as ap
+                    transcribed = await ap.transcribe_audio(path, 'es')
+                    input_field.value += transcribed if transcribed else ""
+                    start_msj, end_msj = _audio_recorder.get_msjs()
+                    _output_widget.controls.remove(start_msj)
+                    _output_widget.controls.remove(end_msj)
+                    _output_widget.controls.remove(msj_transcribe)
+                    try:
+                        import os
+                        os.remove(path)
+                    except Exception:
+                        pass
+                    _page.update()
+                is_transcribing = False
+
+        dictation_btn = _audio_recorder.make_button(on_dictation_click)
+        input_row.controls.insert(-1, dictation_btn)
 
     # Variable para capturar el resultado
     result_value = None

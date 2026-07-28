@@ -7,7 +7,7 @@ def add_response(path, pattern, reponse):
     with open(path, 'a') as f:
         f.write("\n" + pattern + "|" + reponse)
 
-def wadd_file(path, content):
+def wadd_file(path: Path, content: str):
     with open(path, 'a') as f:
         f.write("\n" + content)
 

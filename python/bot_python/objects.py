@@ -2,18 +2,15 @@ from datetime import datetime
 
 class DataBase_Path:
     def __init__(self):
-        # El método __init__ es el constructor. Se ejecuta al nacer el objeto.
-        # Aquí preparamos la memoria. Al principio, no hay ruta. Obvio.
         self.folder_path = None
         self.file_path = None
         self.audio_path = None
+        self.root_path = None
 
     def save_dir_path(self, path):
-        # Un método (acción) para guardar un dato en su memoria.
         self.folder_path = path
 
     def get_dir_path(self):
-        # Otro método para extraer la información cuando la necesites.
         return self.folder_path
 
     def save_file_path(self, path):
@@ -27,6 +24,12 @@ class DataBase_Path:
 
     def get_audio_path(self):
         return self.audio_path
+
+    def save_root_path(self, path):
+        self.root_path = path
+
+    def get_root_path(self):
+        return self.root_path
 
 class Messages:
     def __init__(self):
@@ -47,8 +50,22 @@ class OptionsManager:
     def add_due(self, due):
         self.options.append(due)
 
-    def sort_dues(self):
-        return sorted(self.options, key=lambda x: x.name)
+    def sort_name(self):
+        return sorted(self.options, key=lambda due: due.name)
+
+    def sort_date(self):
+        priority = {
+            "Today": 0,
+            "Tomorrow": 1,
+            "Yesterday": 2,
+            None: 3,
+            "Past": 4
+        }
+
+        return sorted(
+            self.options,
+            key=lambda due: priority.get(due.human_date, 999)
+        )
 
     def clean_suffix(self, options):
         clean_options = []

@@ -137,7 +137,7 @@ async def show_match(matches, path):
 # ============================================================================
 # FUNCIÓN: smooth_chat_input → INPUT INTEGRADO EN LA CAJA NEGRA
 # ============================================================================
-async def smooth_chat_input(prompt: str, spell=False):
+async def smooth_chat_input(prompt: str, spell=False, skipable=False):
     # """
     # Crea un campo de entrada integrado en la ventana principal (no un diálogo).
 
@@ -188,7 +188,7 @@ async def smooth_chat_input(prompt: str, spell=False):
     # Row que agrupa el TextField y el botón
     input_row = ft.Row(
         controls=[input_field, send_button],
-        spacing=8,
+        spacing=5,
         alignment=ft.MainAxisAlignment.CENTER
     )
 
@@ -204,7 +204,7 @@ async def smooth_chat_input(prompt: str, spell=False):
                 is_transcribing = True
                 path = _audio_data_base.get_audio_path()
                 if path:
-                    msj_transcribe = smooth_print("⚙️ Transcribiendo...", True)
+                    msj_transcribe = smooth_print("Transcribiendo...", True)
                     _page.update()
                     import audio_processor as ap
                     transcribed = await ap.transcribe_audio(path, 'es')
@@ -224,11 +224,42 @@ async def smooth_chat_input(prompt: str, spell=False):
         dictation_btn = _audio_recorder.make_button(on_dictation_click)
         input_row.controls.insert(-1, dictation_btn)
 
+    cancelled = False
+
     # Variable para capturar el resultado
     result_value = None
 
     # Evento para sincronización asincrónica
     dialog_closed = asyncio.Event()
+
+    # Contenedor vertical para el input y botón de cancelar
+    input_container = ft.Column(
+        controls=[input_row],
+        spacing=12,
+        horizontal_alignment=ft.CrossAxisAlignment.CENTER
+    )
+
+    if skipable:
+
+        def on_cancel(e):
+            nonlocal cancelled
+            cancelled = True
+            try:
+                _output_widget.controls.remove(input_container)
+            except ValueError:
+                pass
+            _page.update()
+            dialog_closed.set()
+
+        cancel_button = ft.ElevatedButton(
+            content=ft.Text("Cancelar"),
+            on_click=on_cancel,
+            style=ft.ButtonStyle(
+                color=ft.Colors.GREEN_ACCENT,
+                bgcolor=ft.Colors.BLACK
+            )
+        )
+        input_container.controls.append(cancel_button)
 
     # Función que se ejecuta al enviar (botón o Enter)
     def on_send(e):
@@ -258,9 +289,9 @@ async def smooth_chat_input(prompt: str, spell=False):
             margin=8
         )
 
-        # Remover el input_row del widget de salida
+        # Remover el input_container del widget de salida
         try:
-            _output_widget.controls.remove(input_row)
+            _output_widget.controls.remove(input_container)
         except ValueError:
             pass  # Ya fue removido o no existe
 
@@ -279,14 +310,14 @@ async def smooth_chat_input(prompt: str, spell=False):
     # Vincular el evento Enter en el TextField
     input_field.on_submit = on_send
 
-    # Agregar el input_row al widget de salida
-    _output_widget.controls.append(input_row)
+    # Agregar el input_container al widget de salida
+    _output_widget.controls.append(input_container)
     _page.update()
 
     # Esperar a que el usuario envíe el mensaje
     await dialog_closed.wait()
 
-    return result_value if result_value else None
+    return False if cancelled else (result_value if result_value else None)
 
 # ============================================================================
 # FUNCIÓN: smooth_chat_buttons → INPUT CON BOTONES INTEGRADOS

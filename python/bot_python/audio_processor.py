@@ -1,56 +1,67 @@
 import asyncio
-from pywhispercpp.model import Model
-import ollama
+import requests
 import utils
 import render
 import flet as ft
+import os
+from dotenv import load_dotenv
 
+load_dotenv()
 
-# Transcribe audio file to text using pywhispercpp
-# Comentarios en español, nombres de funciones y variables en inglés
+try:
+    if not os.environ.get("TRANSCRIBE_PI5") == "1":
+        from pywhispercpp.model import Model
+        IS_WHISPER_LOCAL_AVAILABLE = True
+    else:
+        IS_WHISPER_LOCAL_AVAILABLE = False
+except (ImportError, ModuleNotFoundError):
+    IS_WHISPER_LOCAL_AVAILABLE = False
+
+if IS_WHISPER_LOCAL_AVAILABLE:
+    model = Model("base")
+else:
+    REMOTE_NGROK_URL = os.getenv("REMOTE_NGROK_URL")
+
+async def connection_pi5():
+    def check():
+        try:
+            resp = requests.get(url=f"{REMOTE_NGROK_URL}/", timeout=40)
+            return resp.ok
+        except requests.exceptions.RequestException as ex:
+            render.smooth_print(f"Chequeo conexion pi-5 fail: {ex}")
+            return False
+    return await asyncio.to_thread(check)
+
 async def transcribe_audio(audio_path: str, lang='en') -> str:
-    # """Transcribe el archivo WAV en `audio_path` usando pywhispercpp.
+    if IS_WHISPER_LOCAL_AVAILABLE:
+        def transcribe() -> str:
+            result = model.transcribe(audio_path, language=lang)
+            try:
+                texts = [segment.text for segment in result]
+            except Exception:
+                return str(result)
+            return " ".join(t.strip() for t in texts if t)
 
-    # Devuelve el texto concatenado en inglés.
-    # """
-    def transcribe() -> str:
-        model = Model("base")
-        # La API de pywhispercpp devuelve una lista (o iterable) de segmentos con atributo .text
-        result = model.transcribe(audio_path, language=lang)
-        try:
-            texts = [segment.text for segment in result]
-        except Exception:
-            # Si no es iterable esperado, devolver la representación como fallback mínimo
-            return str(result)
-        return " ".join(t.strip() for t in texts if t)
+        text = await asyncio.to_thread(transcribe)
+        return text.strip()
+    else:
+        def remote_transcribe() -> str:
+            try:
+                with open(audio_path, 'rb') as f:
+                    files = {'file': f}
+                    resp = requests.post(
+                        f"{REMOTE_NGROK_URL}/transcribe",
+                        files=files,
+                        data={'language': lang},
+                        timeout=40
+                    )
+                if resp.status_code == 200:
+                    return resp.json().get('txt', '')
+                return "Servicio de dictado por voz no disponible en este momento."
+            except requests.exceptions.RequestException:
+                return "Servicio de dictado por voz no disponible en este momento."
 
-    text = await asyncio.to_thread(transcribe)
-    return text.strip()
-
-# Send transcribed text to local Ollama Llama and return the reply
-# Comentarios en español, nombres en inglés
-async def talk_with_coach(messages):
-    # """Enviar `user_text` a Ollama (modelo `llama3.2:3b`) y devolver la respuesta.
-
-    # Usa un System Prompt estricto para comportarse como coach de inglés.
-    # """
-
-    def call_ollama() -> str:
-        # Llamada directa a la API de Ollama
-        response = ollama.chat(model="llama3.2:3b", messages=messages)
-        # Extraer contenido principal según la estructura esperada
-        try:
-            return response["message"]["content"].strip()
-        except Exception:
-            # Fallback mínimo: intentar claves comunes
-            if isinstance(response, dict) and "content" in response:
-                return response["content"].strip()
-            # Si no es el formato esperado, devolver la representación
-            return str(response).strip()
-
-    reply = await asyncio.to_thread(call_ollama)
-    return reply
-
+        return await asyncio.to_thread(remote_transcribe)
 
 class AudioRecorder:
     def __init__(self, audio_recoder):
@@ -78,6 +89,9 @@ class AudioRecorder:
 
     async def record_audio(self):
         if not self.button.data:
+            if not IS_WHISPER_LOCAL_AVAILABLE and not await connection_pi5():
+                render.smooth_print("Servicio de dictado por voz no disponible en este momento")
+                return
             self.terminate = False
             self.button.data = True
             self.button.icon = ft.Icons.STOP_CIRCLE
@@ -87,7 +101,8 @@ class AudioRecorder:
             self.audio_buffer.clear()
             self.msj_start = render.smooth_print("Iniciando grabacion..", True)
             stamp_path = utils.create_stamp_path("record", "wav")
-            current_audio_path = f"audios/{stamp_path}"
+            root_path = self.data_base.get_root_path() if self.data_base else ""
+            current_audio_path = f"{root_path}/audios/{stamp_path}"
             self.audio_path = current_audio_path
             self.data_base.save_audio_path(self.audio_path)
             await self.audio_recorder.start_recording(self.audio_path)
@@ -123,7 +138,7 @@ class AudioRecorder:
             except FileNotFoundError as error_404:
                 print(f"Error 404, {error_404}")
             except Exception as ex:
-                print(f"🚨 lol: {ex}")
+                print(f"\U0001f6a8 lol: {ex}")
 
     def make_button(self, func=record_audio):
         self.button.on_click = func
@@ -131,15 +146,3 @@ class AudioRecorder:
 
     def get_msjs(self):
         return self.msj_start, self.msj_end
-
-if __name__ == "__main__":
-    # test whisper
-    from pywhispercpp.model import Model
-
-    model = Model("base")
-
-    try:
-        result = model.transcribe()
-        print("El parámetro translate existe.")
-    except TypeError as e:
-        print(e)

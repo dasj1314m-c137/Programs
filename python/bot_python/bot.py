@@ -5,18 +5,19 @@ import flet_audio_recorder as far
 from responsive import ResponsiveLayout
 import audio_processor
 import objects
+import setup
 
 acts = ["Leer", "Entrenar box", "Meditar", "Editar videos", "Programar", "Escribir", "Aburrirse", "Jugar ajedrez", "Aprender"]
 
 # Mantenemos el diccionario global, pero dejamos las funciones en None para asignarlas dinámicamente en main
 actions = {
-    "mood": {
-        "prompt": "¿Como estas el dia de hoy?",
-        "path": r"data/mood_responses.txt",
-        "json_key": "mood_asked",
-        "func": None,
-        "dir_question": True
-    },
+    # "mood": {
+    #     "prompt": "¿Como estas el dia de hoy?",
+    #     "path": r".data/mood_responses.txt",
+    #     "json_key": "mood_asked",
+    #     "func": None,
+    #     "dir_question": True
+    # },
     "write_day": {
         "name": "Diario",
         "prompt": "¿Quieres escribir tu dia?",
@@ -70,13 +71,37 @@ async def main(page: ft.Page):
     page.window.resizable = True
     page.vertical_alignment = ft.MainAxisAlignment.CENTER
 
-    responsive = ResponsiveLayout(page)
+    # ---- INICIALIZAR RENDER TEMPRANO (necesario para ask/search) ----
+
+    app_platform = page.platform
+
+    responsive = ResponsiveLayout(page, platform=app_platform)
 
     terminal_output = ft.Column(
         scroll=ft.ScrollMode.ADAPTIVE,
         expand=True,
-        auto_scroll=True
+        auto_scroll=True,
+        width=float("inf")
     )
+
+    render.init_render(page, terminal_output, responsive)
+    page.add(terminal_output)
+    page.update()
+
+    # ---- FIRST RUN SETUP ----
+    global_config = setup.get_global_config()
+
+    if global_config is None:
+        root_path = await setup.show_welcome_screen(page)
+        if root_path is None:
+            return
+    else:
+        root_path = global_config["root_path"]
+        setup.ensure_structure(root_path)
+
+    page.controls.clear()
+    page.update()
+    # ---- END SETUP ----
     recorder = audio_processor.AudioRecorder(None)
 
     audio_recorder = far.AudioRecorder(
@@ -88,15 +113,13 @@ async def main(page: ft.Page):
         on_stream=lambda e: recorder.audio_buffer.extend(e.chunk)
     )
 
-
-    # audio_processor.AudioRecorder(audio_recorder)
     data_base = objects.DataBase_Path()
+    data_base.save_root_path(root_path)
     recorder.audio_recorder = audio_recorder
     recorder.data_base = data_base
-    bot_manager = mg.BotManager(page, terminal_output, recorder, data_base, responsive)
+    bot_manager = mg.BotManager(page, terminal_output, recorder, data_base, responsive, platform=app_platform)
 
-
-    actions["mood"]["func"] = bot_manager.match_response
+    # actions["mood"]["func"] = bot_manager.match_response
     actions["write_day"]["func"] = bot_manager.writing_files
     actions["show_dues"]["func"] = bot_manager.duesMD_render
     actions["modify_dues"]["func"] = bot_manager.dues_manager

@@ -1,7 +1,9 @@
 import os
+import traceback
 import ask
 import render
 import search
+import setup
 import write_files
 import utils
 from datetime import date
@@ -11,8 +13,14 @@ import audio_processor
 import objects
 from utility import math_oprs
 
+try:
+    import ia_manager
+    IA_AVAILABLE = True
+except ImportError:
+    IA_AVAILABLE = False
+
 class BotManager:
-    def __init__(self, page: ft.Page, output_column: ft.Column, recorder, data_base, responsive=None):
+    def __init__(self, page: ft.Page, output_column: ft.Column, recorder, data_base, responsive=None, platform=None):
         self.page = page
         self.output_column = output_column
         self.recorder = recorder
@@ -21,11 +29,16 @@ class BotManager:
         self.history_ia_bot = []
 
         self.data_base = data_base
+
+        self.root_path = data_base.get_root_path()
+        self.data_json_path = Path(setup.get_data_json_path())
+
         self.messages = objects.Messages()
+        self.platform = platform
 
 
     def daily_check(self):
-        data = search.get_json_data("data/data.json")
+        data = search.get_json_data(self.data_json_path)
         today = date.today().strftime("%d/%m/%y")
         if data["metadata"]["last_update"] != today:
             data["metadata"]["last_update"] = today
@@ -33,67 +46,63 @@ class BotManager:
                 data["daily_status"][key] = False
             for key in data["times_asked"]:
                 data["times_asked"][key] = 0
-            utils.save_json_data("data/data.json", data)
+            utils.save_json_data(self.data_json_path, data)
 
     def resolve_action_path(self, action):
         path = action["path"]
         if Path(path).exists():
             return None
-        resolved_path = search.get_json_value("data/data.json", "actions_paths", path)
+        resolved_path = search.get_json_value(self.data_json_path, "actions_paths", path)
         if resolved_path:
             action["path"] = resolved_path
         return None
 
     async def check_actions_path(self, action):
-        # Función ASYNC porque usa diálogos de Flet
         if Path(action["path"]).exists():
             return True
-        path = search.get_json_value("data/data.json", "actions_paths", action["path"])
+        path = search.get_json_value(self.data_json_path, "actions_paths", action["path"])
         if not path or not Path(path).exists():
-            file = "un archivo" if action["path_file"] else "una carpeta"
-            act = "modificar"
-            render.smooth_print(f"No tenemos {file} para {act} {action['name']}.")
-            add_path = await ask.questionSN(f"Quieres ingresar una ruta para este {file.split()[1]}?")
-            if add_path:
-                if action["path_file"]:
-                    await search.file_picker([".md"], self.data_base, render, ft, multiple=False)
-                    file_path = self.data_base.get_file_path()
-                    if file_path is None:
-                        render.smooth_print("No se seleccionó un archivo. No se podrá realizar la acción.")
-                        return False
-                    write_files.set_var_json("data/data.json", "actions_paths", action["path"], file_path)
-                else:
-                    await search.folder_picker(self.data_base, render, ft)
-                    folder_path = self.data_base.get_dir_path()
-                    if folder_path is None:
-                        render.smooth_print("No se seleccionó una carpeta. No se podrá realizar la acción.")
-                        return False
-                    write_files.set_var_json("data/data.json", "actions_paths", action["path"], folder_path)
-            else:
-                render.smooth_print("No se podrá realizar la acción sin un archivo asociado.")
-                return False
+            if action["path"] == "diary":
+                month = date.today().strftime("%B").lower()
+                year = date.today().strftime("%y")
+                file_name = f"{month}_{year}.md"
+                path = f"{self.root_path}/diary/{file_name}"
+                Path(path).parent.mkdir(parents=True, exist_ok=True)
+                if not Path(path).exists():
+                    write_files.wadd_file(path, "")
+            elif action["path"] == "dues_file":
+                path = f"{self.root_path}/dues/dues.md"
+                Path(path).parent.mkdir(parents=True, exist_ok=True)
+                write_files.wadd_file(path, "")
+            elif action["path"] == "dues_dir":
+                path = f"{self.root_path}/dues"
+                Path(path).mkdir(parents=True, exist_ok=True)
+            elif action["path"] == "books_dir":
+                path = f"{self.root_path}/book_learnings"
+                Path(path).mkdir(parents=True, exist_ok=True)
+            write_files.set_var_json(self.data_json_path, "actions_paths", action["path"], path)
+        action["path"] = path
         return True
 
     async def check_status_json(self, action):
-        # Función ASYNC porque llama a funciones async
-        status = search.get_json_value("data/data.json", "daily_status", action["json_key"])
+        status = search.get_json_value(self.data_json_path, "daily_status", action["json_key"])
         if status:
             return None
         else:
             if action["dir_question"]:
                 await action["func"](action)
-                write_files.set_var_json("data/data.json", "daily_status", action["json_key"], True)
+                write_files.set_var_json(self.data_json_path, "daily_status", action["json_key"], True)
             else:
                 path = await self.check_actions_path(action)
                 if not path:
                     return None
                 self.resolve_action_path(action)
                 execute = await ask.questionSN(action["prompt"])
-                write_files.add_counter_json("data/data.json", "times_asked", "daily_status", action["json_key"])
+                write_files.add_counter_json(self.data_json_path, "times_asked", "daily_status", action["json_key"])
                 if execute:
                     result = await action["func"](action)
                     if result:
-                        write_files.set_var_json("data/data.json", "daily_status", action["json_key"], True)
+                        write_files.set_var_json(self.data_json_path, "daily_status", action["json_key"], True)
 
     async def match_response(self,action):
         mood = await ask.open_question(action["prompt"])
@@ -102,114 +111,154 @@ class BotManager:
         return True
 
     async def writing_files(self, action):
-        d = date.today()
-        writing = await ask.open_question("Escribe:")
-        if writing == "exit":
+        try:
+            today = date.today()
+            month = today.strftime("%B").lower()
+            year = today.strftime("%y")
+            expected_name = f"{month}_{year}.md"
+            expected_path = f"{self.root_path}/diary/{expected_name}"
+
+            current_path = action["path"]
+            if Path(current_path) != Path(expected_path):
+                Path(expected_path).parent.mkdir(parents=True, exist_ok=True)
+                if not Path(expected_path).exists():
+                    write_files.wadd_file(expected_path, "")
+                action["path"] = expected_path
+                write_files.set_var_json(self.data_json_path, "actions_paths", "diary", expected_path)
+
+            writing = await ask.open_question("Escribe:")
+            if writing == "exit":
+                return None
+            if writing is None:
+                render.smooth_print("Entrada de diario cancelada.")
+                return None
+            write_files.wadd_file(action["path"], str(today) + "\n" + writing)
+            render.smooth_print("Archivo escrito correctamente")
+            return True
+        except Exception:
+            render.smooth_print(traceback.format_exc())
             return None
-        if writing is None:
-            render.smooth_print("Entrada de diario cancelada.")
-            return None
-        write_files.wadd_file(action["path"], str(d) + "\n" + writing)
-        render.smooth_print("Archivo escrito correctamente")
-        return True
 
     async def list_links_heading(self, path):
         obj_opts = objects.OptionsManager()
-        # Función ASYNC porque usa diálogos de Flet para seleccionar
         with open(path, 'r') as f:
             for line in f:
                 if line.strip() == "":
                     continue
                 _, value = search.getNH_md(line.strip())
                 utils.creating_obj_due(obj_opts, value[1], value[0], value[2])
-            choice = await ask.select_option(obj_opts, self.messages)
-            if choice is None:
-                return None
-            return choice
-
-    async def duesMD_render(self, action):
-        dues_dir = search.get_json_value("data/data.json", "actions_paths", "dues_dir")
-        # Función ASYNC porque lista_dues es async
-        self.messages.set_select_msj("Selecciona un pendiente para ver detalles:")
-        choice = await self.list_links_heading(action["path"])
+        if not obj_opts.options:
+            render.smooth_print("No hay pendientes registrados.")
+            return None
+        choice = await ask.select_option(obj_opts, self.messages)
         if choice is None:
             return None
-        # choice es un objeto Due con name=file, description=heading y date=fecha
-        # `description` ahora contiene el archivo, `name` el heading
-        path = search.locate_get_file(dues_dir + "/", choice.description)
-        content = search.getMD_block(path, choice.name)
-        date_text = choice.date.strip() if choice.date else ""
-        render.smooth_print(date_text + "\n" + content.strip())
-        return None
+        return choice
 
-    async def add_due(self, action):
-        # Función ASYNC porque usa diálogos de Flet
-        dues_file = search.get_json_value("data/data.json", "actions_paths", "dues_file")
-        while True:
-            while True:
-                files = search.locate_files_suffix(action["path"] + "/", ".md")
-                files.remove("dues")
-                self.messages.set_select_msj("Estos son los archivos disponibles para agregar el pendiente:")
-                file_name = await ask.select_option(files, self.messages, opt_other=True)
-                if file_name is None:
-                    return None
-                elif file_name == "Otro":
-                    file_name = await ask.open_question("Escribe nombre del nuevo archivo donde quieres agregar el pendiente: ", spell=False)
-                    create_file = await ask.questionSN("¿Quieres crear un nuevo archivo con este nombre?")
-                    if create_file:
-                        await search.folder_picker(self.data_base, render, ft, prompt="Selecciona la carpeta donde quieres guardar el nuevo archivo")
-                        folder_path = self.data_base.get_dir_path()
-                        if not folder_path:
-                            render.smooth_print("No se seleccionó una carpeta. No se podrá crear el archivo.")
-                            continue
-                        path_file = folder_path + "/" + file_name + ".md"
-                        break
-                path_file = search.locate_get_file(action["path"] + "/", file_name + ".md")
-                break
-            title_due = await ask.open_question("Escribe titulo del pendiente que quieres agregar: ", spell=False)
-            title_due = title_due.replace(",", "")
-            date_due = await ask.ask_date_hybrid("Fecha del pendiente")
-            if date_due is None:
-                render.smooth_print("Agregación de pendiente cancelada.")
-                return None
-            content_due = await ask.open_question("Escribe contenido del pendiente que quieres agregar: ")
-            link_due = utils.linkHeading_md(file_name, title_due)
-            link_due = link_due + " " + date_due
-            new_due = f"## {title_due}\n{content_due}"
-            complete_add = await ask.questionSN(f"¿Quieres agregar el pendiente '{title_due}' al archivo '{file_name}.md'?")
-            if not complete_add:
-                return None
-            write_files.wadd_file(path_file, new_due)
-            write_files.wadd_file(dues_file, link_due)
-            render.smooth_print("Pendiente agregado exitosamente.")
-            another = await ask.questionSN("¿Quieres agregar otro pendiente?")
-            if not another:
-                return None
+    async def duesMD_render(self, action):
+        try:
+            dues_dir = search.get_json_value(self.data_json_path, "actions_paths", "dues_dir")
 
-    async def rm_due(self, action):
-        # Función ASYNC porque usa diálogos de Flet
-        dues_file = search.get_json_value("data/data.json", "actions_paths", "dues_file")
-        while True:
-            self.messages.set_select_msj("Selecciona el pendiente que quieres eliminar:")
-            choice = await self.list_links_heading(dues_file)
+            self.messages.set_select_msj("Selecciona un pendiente para ver detalles:")
+            choice = await self.list_links_heading(action["path"])
             if choice is None:
                 return None
-            # choice es un objeto Due con name=file, description=heading y date=fecha
-            path_file = search.locate_get_file(action["path"] + "/", choice.description)
-            link = utils.linkHeading_md(choice.description.replace(".md", ""), choice.name)
-            complete_rm = await ask.questionSN(f"¿Quieres eliminar el pendiente '{choice.name}' del archivo '{choice.description}'?")
-            if not complete_rm:
-                return None
-            rm_link = write_files.rm_MD_block(dues_file, link[2:], "[[")
-            # El heading es ahora `choice.name`
-            rm_due = write_files.rm_MD_block(path_file, choice.name)
-            if not rm_due or not rm_link:
-                render.smooth_print("Sin coincidencias en el archivo del pendiente o en el archivo de links")
-                return None
-            render.smooth_print("Pendiente eliminado exitosamente.")
-            another = await ask.questionSN("¿Quieres eliminar otro pendiente?")
-            if not another:
-                return None
+
+            path = search.locate_get_file(dues_dir + "/", choice.description)
+            content = search.getMD_block(path, choice.name)
+            date_text = choice.date.strip() if choice.date else ""
+            render.smooth_print(date_text + "\n" + content.strip())
+            return None
+        except Exception:
+            render.smooth_print(traceback.format_exc())
+            return None
+
+    async def add_due(self, action):
+        try:
+            dues_file = search.get_json_value(self.data_json_path, "actions_paths", "dues_file")
+            while True:
+                while True:
+                    files = search.locate_files_suffix(action["path"] + "/", ".md")
+                    files = [f for f in files if f != "dues"]
+                    if not files:
+                        render.smooth_print("No hay archivos para guardar pendientes")
+                        due_add = await ask.questionSN("Quieres agregar un archivo?")
+                        if due_add:
+                            file_name = await ask.open_question("Escribe nombre del nuevo archivo donde quieres agregar el pendiente: ", spell=False)
+                            create_file = await ask.questionSN("¿Quieres crear un nuevo archivo con este nombre?")
+                            if create_file:
+                                path_file = action["path"] + "/" + file_name + ".md"
+                                write_files.wadd_file(path_file, "")
+                                break
+                            continue
+                        else:
+                            return
+                    self.messages.set_select_msj("Estos son los archivos disponibles para agregar el pendiente:")
+                    file_name = await ask.select_option(files, self.messages, opt_other=True)
+                    if file_name is None:
+                        return None
+                    elif file_name == "Otro":
+                        file_name = await ask.open_question("Escribe nombre del nuevo archivo donde quieres agregar el pendiente: ", spell=False)
+                        create_file = await ask.questionSN("¿Quieres crear un nuevo archivo con este nombre?")
+                        if create_file:
+                            path_file = action["path"] + "/" + file_name + ".md"
+                            write_files.wadd_file(path_file, "")
+                            break
+                        continue
+
+                    path_file = search.locate_get_file(action["path"] + "/", file_name + ".md")
+                    break
+                title_due = await ask.open_question("Escribe nombre del pendiente: ", spell=False)
+                title_due = title_due.replace(",", "")
+                date_due = await ask.ask_date_hybrid("Fecha del pendiente")
+                if date_due is None:
+                    render.smooth_print("Agregación de pendiente cancelada.")
+                    return None
+                content_due = await ask.open_question("Escribe descripcion del pendiente: ", skipable=True)
+                link_due = utils.linkHeading_md(file_name, title_due)
+                link_due = link_due + " " + date_due
+                if not content_due:
+                    new_due = f"## {title_due}"
+                else:
+                    new_due = f"## {title_due}\n{content_due}"
+                complete_add = await ask.questionSN(f"¿Quieres agregar el pendiente '{title_due}' al archivo '{file_name}.md'?")
+                if not complete_add:
+                    return None
+                write_files.wadd_file(path_file, new_due)
+                write_files.wadd_file(dues_file, link_due)
+                render.smooth_print("Pendiente agregado exitosamente.")
+                another = await ask.questionSN("¿Quieres agregar otro pendiente?")
+                if not another:
+                    return None
+        except Exception:
+            render.smooth_print(traceback.format_exc())
+            return None
+
+    async def rm_due(self, action):
+        try:
+            dues_file = search.get_json_value(self.data_json_path, "actions_paths", "dues_file")
+            while True:
+                self.messages.set_select_msj("Selecciona el pendiente que quieres eliminar:")
+                choice = await self.list_links_heading(dues_file)
+                if choice is None:
+                    return None
+                path_file = search.locate_get_file(action["path"] + "/", choice.description)
+                link = utils.linkHeading_md(choice.description.replace(".md", ""), choice.name)
+                complete_rm = await ask.questionSN(f"¿Quieres eliminar el pendiente '{choice.name}' del archivo '{choice.description}'?")
+                if not complete_rm:
+                    return None
+                rm_link = write_files.rm_MD_block(dues_file, link[2:], "[[")
+                rm_due_res = write_files.rm_MD_block(path_file, choice.name)
+                if not rm_due_res or not rm_link:
+                    render.smooth_print("Sin coincidencias en el archivo del pendiente o en el archivo de links")
+                    return None
+                render.smooth_print("Pendiente eliminado exitosamente.")
+                another = await ask.questionSN("¿Quieres eliminar otro pendiente?")
+                if not another:
+                    return None
+        except Exception:
+            render.smooth_print(traceback.format_exc())
+            return None
 
     async def dues_manager(self, action):
         # Función ASYNC porque usa diálogos y llama a funciones async
@@ -421,7 +470,7 @@ class BotManager:
         self.output_column.controls.append(user_message_card)
         self.page.update()
 
-        coach_response = await audio_processor.talk_with_coach(self.history_ia_bot)
+        coach_response = await ia_manager.talk_with_coach(self.history_ia_bot)
 
         assistant_msj = {
             "role": "assistant",
@@ -452,6 +501,9 @@ class BotManager:
             print(f"algo salio mal ->: {ex}")
 
     async def transcribe_action(self):
+        if not audio_processor.IS_WHISPER_LOCAL_AVAILABLE and not await audio_processor.connection_pi5():
+                render.smooth_print("Servicio de dictado por voz no disponible en este momento")
+                return
         await self.audio_manager(self._transcribe_callback)
 
     async def _transcribe_callback(self, data_base):
@@ -537,23 +589,32 @@ class BotManager:
                 await handler(e)
             return handler_wrapper
 
-        is_mobile = self.responsive.is_mobile if self.responsive else False
+        is_mobile_width = self.responsive.is_mobile if self.responsive else False
         btn_w = self.responsive.get_button_width() if self.responsive else 250
         btn_h = self.responsive.get_button_height() if self.responsive else 50
         title_sz = self.responsive.get_title_size() if self.responsive else 20
         content_pad = self.responsive.get_content_padding() if self.responsive else 20
+        margin = self.responsive.get_margin() if self.responsive else 1
 
         # ========== CREAR BOTONES ==========
+        is_mobile_platform = self.platform in (
+            ft.PagePlatform.ANDROID, ft.PagePlatform.IOS
+        ) if self.platform else False
+
+        mobile = is_mobile_width or is_mobile_platform
+
         menu_items = [
             ("📝 Escribir día", on_write_day, ft.Colors.BLUE_ACCENT),
             ("📋 Ver pendientes", on_show_dues, ft.Colors.AMBER_ACCENT),
             ("✏️ Modificar pendientes", on_modify_dues, ft.Colors.ORANGE_ACCENT),
             ("📚 Aprendizajes de libros", on_book_learn, ft.Colors.GREEN_ACCENT),
-            ("🎤 Practicas ingles", on_practice_english, ft.Colors.YELLOW_ACCENT),
             ("🧮 Operaciones matemáticas", on_math_oprs, ft.Colors.PURPLE_ACCENT),
             ("🎤 Transcribir audio", on_transcribe_action, ft.Colors.CYAN_ACCENT),
             ("🚪 Salir", on_exit, ft.Colors.RED_ACCENT),
         ]
+
+        if not is_mobile_platform and IA_AVAILABLE:
+            menu_items.insert(4, ("🎤 Practicas ingles", on_practice_english, ft.Colors.YELLOW_ACCENT))
 
         def make_button(label, handler, color):
             return ft.ElevatedButton(
@@ -592,12 +653,11 @@ class BotManager:
             border_radius=10,
             padding=content_pad,
             expand=True,
-            bgcolor="#1e1e1e",
-            margin=10,
+            bgcolor=ft.Colors.GREY_900,
+            margin=margin
         )
 
-        if is_mobile:
-
+        if mobile:
             async def handle_show_drawer(e):
                 await self.page.show_drawer()
 
@@ -639,7 +699,7 @@ class BotManager:
             self.page.add(
                 ft.SafeArea(
                     content=output_container,
-                    expand=True,
+                    expand=True
                 )
             )
         else:
@@ -650,16 +710,26 @@ class BotManager:
                 padding=20,
                 border_radius=10,
                 bgcolor=ft.Colors.GREY_900,
-                margin=10,
+                margin=10
             )
 
             self.page.add(
                 ft.Row(
-                    controls=[output_container, menu_panel],
+                    controls=[
+                        ft.Container(
+                            bgcolor=ft.Colors.GREY_900,
+                            content=output_container,
+                            expand=True,
+                            border_radius=10
+                        ),
+                        ft.Container(
+                            bgcolor=ft.Colors.GREY_900,
+                            content=menu_panel,
+                            border_radius=10
+                        )
+                    ],
                     expand=True,
-                    alignment=ft.MainAxisAlignment.START,
-                    vertical_alignment=ft.CrossAxisAlignment.START,
-                    spacing=10,
+                    spacing=15,
                 )
             )
 
@@ -672,18 +742,3 @@ class BotManager:
             path = await self.check_actions_path(actions[action])
             if path:
                 self.resolve_action_path(actions[action])
-
-# _audio_buffer = bytearray()
-# _page = None
-# _output_column = None
-# _audio_recorder = None
-# _history_ia_bot = []
-
-# data_base = objects.DataBase_Path()
-# messages = objects.Messages()
-
-# def init_manager(page: ft.Page, output_column: ft.Column, audio_recorder):
-#     global _page, _output_column, _audio_recorder
-#     _page = page
-#     _output_column = output_column
-#     _audio_recorder = audio_recorder

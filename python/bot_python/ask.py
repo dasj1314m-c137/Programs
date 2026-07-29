@@ -40,7 +40,7 @@ async def questionSN(question):
 # ============================================================================
 # FUNCIÓN: open_question → PREGUNTA ABIERTA INTEGRADA EN LA VENTANA
 # ============================================================================
-async def open_question(question, spell=True):
+async def open_question(question, spell=True, skipable=False):
     # """
     # Realiza una pregunta abierta con un campo de entrada integrado en la ventana.
 
@@ -50,11 +50,14 @@ async def open_question(question, spell=True):
     # Args:
     #     question: La pregunta a mostrar
     #     spell: Si True, añade botón de dictado por voz
+    #     skipable: Si True, permite cancelar la pregunta
 
     # Returns:
-    #     str: El texto ingresado por el usuario, o None si cancela
+    #     str: El texto ingresado por el usuario, False si cancela, None si vacío
     # """
-    result = await render.smooth_chat_input(question, spell=spell)
+    result = await render.smooth_chat_input(question, spell=spell, skipable=skipable)
+    if result is False:
+        return False
     return result if result else None
 # ============================================================================
 # FUNCIÓN: select_option → SELECCIONA DE UNA LISTA EN DIÁLOGO
@@ -94,10 +97,10 @@ async def select_option(options_or_manager, obj_message, opt_other=False):
     if isinstance(options_or_manager, list):
         sorted_options = sorted(options_or_manager)
     elif isinstance(options_or_manager, OptionsManager):
-        sorted_options = options_or_manager.sort_dues()
         # Convertir fechas a formato humanizado (ayer, hoy, mañana, día de semana)
         # antes de ordenar los pendientes y quitar el sufijo
         options_or_manager.date_to_human()
+        sorted_options = options_or_manager.sort_date()
     else:
         render.smooth_print("fallo no pasaste ni lista normal ni objeto lista de objetos")
 
@@ -106,11 +109,12 @@ async def select_option(options_or_manager, obj_message, opt_other=False):
         sorted_options.append("Otro")
 
     # Grupo de radio (valores como índices 0-based en string)
-    radio_controls = [ft.Radio(
-        value=str(i),
-        label=str(opt),
-        active_color=ft.Colors.GREEN_ACCENT,
-        label_style=ft.TextStyle(bgcolor=ft.Colors.BLACK, color=ft.Colors.GREEN_ACCENT)
+    radio_controls = [
+        ft.Radio(
+            value=str(i),
+            label=str(opt),
+            active_color=ft.Colors.GREEN_ACCENT,
+            label_style=ft.TextStyle(bgcolor=ft.Colors.BLACK, color=ft.Colors.GREEN_ACCENT)
         )
         for i, opt in enumerate(sorted_options)
         ]
@@ -118,11 +122,12 @@ async def select_option(options_or_manager, obj_message, opt_other=False):
     # Contenedor que agrupa las opciones
     responsive = _get_responsive()
     list_height = responsive.get_option_list_height(len(sorted_options)) if responsive else None
+    spacing = responsive.get_spacing()
 
     if list_height:
-        options_column = ft.Column(controls=radio_controls, spacing=6, scroll=ft.ScrollMode.ALWAYS, height=list_height)
+        options_column = ft.Column(controls=radio_controls, spacing=spacing, scroll=ft.ScrollMode.ALWAYS, height=list_height)
     else:
-         options_column = ft.Column(controls=radio_controls, spacing=6)
+        options_column = ft.Column(controls=radio_controls, spacing=spacing)
 
     # Inicializar RadioGroup con el contenido (requerido por Flet)
     radio_group = ft.RadioGroup(content=options_column)

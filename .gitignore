@@ -1,0 +1,7 @@
+models/
+__pycache__/
+*.bin
+*.pyc
+*data*/
+*files*/
+.env

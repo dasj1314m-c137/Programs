@@ -1,0 +1,9 @@
+services:
+  pywhispercpp:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    volumes:
+      - .:/app
+      - ./models:/app/models

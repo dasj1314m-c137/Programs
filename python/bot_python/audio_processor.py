@@ -22,6 +22,21 @@ if IS_WHISPER_LOCAL_AVAILABLE:
 else:
     REMOTE_NGROK_URL = os.getenv("REMOTE_NGROK_URL")
 
+COMUN_KEYWORDS = [
+    # Hardware y Sistemas
+    "Raspberry", "Mac", "Linux",
+    # Lenguajes y Frameworks
+    "Python", "Flet",
+    # Herramientas y Librerías
+    "pywhispercpp", "Ollama", "Docker", "Ngrok", "Obsidian",
+    # Términos generales
+    "IA", "bot", "API", "JSON", "SSH", ".py", ".json", ".toml", ".txt", "script",
+    "venv", "_", "True", "False", "self", ".", "atributo", "url's", "url", "GitHub",
+    "keys", "key", "API's"
+]
+
+initial_prompts = ",".join(COMUN_KEYWORDS)
+
 async def connection_pi5():
     def check():
         try:
@@ -35,7 +50,7 @@ async def connection_pi5():
 async def transcribe_audio(audio_path: str, lang='en') -> str:
     if IS_WHISPER_LOCAL_AVAILABLE:
         def transcribe() -> str:
-            result = model.transcribe(audio_path, language=lang)
+            result = model.transcribe(audio_path, language=lang, initial_prompt=initial_prompts)
             try:
                 texts = [segment.text for segment in result]
             except Exception:
@@ -52,7 +67,7 @@ async def transcribe_audio(audio_path: str, lang='en') -> str:
                     resp = requests.post(
                         f"{REMOTE_NGROK_URL}/transcribe",
                         files=files,
-                        data={'language': lang},
+                        data={'language': lang, 'initial_prompts': initial_prompts},
                         timeout=40
                     )
                 if resp.status_code == 200:

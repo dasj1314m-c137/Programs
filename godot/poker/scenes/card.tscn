@@ -1,0 +1,22 @@
+[gd_scene format=3 uid="uid://ciquvtvw0chk1"]
+
+[ext_resource type="Script" uid="uid://fxcxhjpipaoh" path="res://scenes/card_view.gd" id="1_6u4wf"]
+[ext_resource type="Texture2D" uid="uid://bbkdb8p1m822j" path="res://assets/cards/card_back.png" id="2_6u4wf"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_cyl7p"]
+size = Vector2(50, 88)
+
+[node name="Card" type="Area2D" unique_id=1668223157]
+scale = Vector2(0.4, 0.4)
+script = ExtResource("1_6u4wf")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=77055907]
+scale = Vector2(0.5, 0.5)
+shape = SubResource("RectangleShape2D_cyl7p")
+
+[node name="BackSprite" type="Sprite2D" parent="." unique_id=704991063]
+scale = Vector2(0.6, 0.8)
+texture = ExtResource("2_6u4wf")
+
+[node name="FaceSprite" type="Sprite2D" parent="." unique_id=105917930]
+scale = Vector2(0.6, 0.8)

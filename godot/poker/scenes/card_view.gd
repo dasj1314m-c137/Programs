@@ -1,11 +1,21 @@
 extends Area2D
 class_name CardView
 
+signal clicked(card_view: CardView)
+
 @onready var face_sprite: Sprite2D = $FaceSprite
 @onready var back_sprite: Sprite2D = $BackSprite
 
 var card_data: Card
 var is_face_up: bool = true
+var selected: bool = false
+
+func _ready() -> void:
+	input_event.connect(_on_input_event)
+
+func _on_input_event(_viewport: Node, event: InputEvent, _shape_idx: int) -> void:
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		clicked.emit(self)
 
 func setup(a_card_data: Card, start_face_up: bool = true) -> void:
 	card_data = a_card_data
@@ -14,6 +24,15 @@ func setup(a_card_data: Card, start_face_up: bool = true) -> void:
 	if start_face_up:
 		_load_face_texture()
 	set_face_up(is_face_up)
+
+func set_selected(value: bool) -> void:
+	selected = value
+	if selected:
+		position.y -= 12
+		z_index = 2
+	else:
+		position.y += 12
+		z_index = 1
 
 func _load_face_texture() -> void:
 	if card_data == null:

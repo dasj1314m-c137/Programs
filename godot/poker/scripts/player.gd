@@ -7,9 +7,11 @@ var hand_cards: Array[Card] = []
 var melds_down: Array[Array]
 var melds_changed: bool = false
 var play: Array[Card]
+var is_bot: bool = true
 
-func _init(a_name: String):
+func _init(a_name: String, bot: bool = true):
 	name = a_name
+	is_bot = bot
 	
 func save_card(a_card: Card):
 	hand_cards.append(a_card)
@@ -56,6 +58,17 @@ func down_melds():
 		hand_cards.erase(card)
 	play.clear()
 	return
+
+# El humano selecciona 3-4 cartas y el botón "Bajar jugada" valida con el Evaluator.
+func down_selected_meld(selected: Array[Card]) -> bool:
+	if not Evaluator.check_play(selected):
+		return false
+	selected.sort_custom(func(a, b): return a.value < b.value)
+	melds_down.append(selected.duplicate())
+	for card in selected:
+		hand_cards.erase(card)
+	melds_changed = true
+	return true
 	
 func has_play():
 	if hand_cards.size() < 3:

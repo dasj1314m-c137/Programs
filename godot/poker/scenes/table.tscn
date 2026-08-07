@@ -4,82 +4,113 @@
 [ext_resource type="Texture2D" uid="uid://oc3bwh4o33ts" path="res://assets/bg_table.jpg" id="2_eotx8"]
 
 [node name="Table" type="Node2D" unique_id=2096720985]
-scale = Vector2(5, 5)
 script = ExtResource("1_02ppr")
 
 [node name="bg" type="Sprite2D" parent="." unique_id=339629184]
-position = Vector2(118.690254, 64.8)
-scale = Vector2(0.34952876, 0.28563276)
+position = Vector2(640, 360)
+scale = Vector2(2.1, 1.8)
 texture = ExtResource("2_eotx8")
 
 [node name="DeckPosition" type="Marker2D" parent="." unique_id=323221947]
-position = Vector2(84.8, 63.800003)
+visible = false
+position = Vector2(457, 355)
 
 [node name="DiscardPosition" type="Marker2D" parent="." unique_id=1333629380]
-position = Vector2(115, 65)
+position = Vector2(640, 360)
 
 [node name="PlayerHand" type="Node2D" parent="." unique_id=728635967]
-position = Vector2(112, 116)
-scale = Vector2(0.99999976, 0.99999976)
+position = Vector2(640, 640)
 
 [node name="PlayerPlays" type="Node2D" parent="." unique_id=1904635742]
-position = Vector2(112, 96.4)
-scale = Vector2(0.99999976, 0.99999976)
+position = Vector2(640, 500)
 
 [node name="Bot1Hand" type="Node2D" parent="." unique_id=1151884212]
-position = Vector2(18.8, 65)
+position = Vector2(50, 360)
 
 [node name="Bot1Plays" type="Node2D" parent="." unique_id=1452103839]
-position = Vector2(50.2, 63.5)
+position = Vector2(160, 320)
 
 [node name="Bot2Hand" type="Node2D" parent="." unique_id=397382096]
-position = Vector2(112, 19.4)
+position = Vector2(640, 70)
 
 [node name="Bot2Plays" type="Node2D" parent="." unique_id=474591062]
-position = Vector2(112, 38.6)
-scale = Vector2(0.99999976, 0.99999976)
+position = Vector2(640, 210)
 
 [node name="Bot3Hand" type="Node2D" parent="." unique_id=943259004]
-position = Vector2(213.4, 65)
+position = Vector2(1230, 360)
 
 [node name="Bot3Plays" type="Node2D" parent="." unique_id=950282130]
-position = Vector2(194.6, 63.5)
+position = Vector2(1120, 320)
 
 [node name="UI" type="CanvasLayer" parent="." unique_id=538715486]
 layer = 2
 
-[node name="PauseBtn" type="Button" parent="UI" unique_id=1331022209]
+[node name="Control" type="Control" parent="UI" unique_id=2100000001]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="PauseBtn" type="Button" parent="UI/Control" unique_id=1331022209]
 process_mode = 3
-offset_left = 181.0
-offset_top = 557.0
-offset_right = 265.0
-offset_bottom = 617.0
+layout_mode = 0
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 16.0
+offset_top = -72.0
+offset_right = 112.0
+offset_bottom = -16.0
+grow_vertical = 0
 text = "Pausar ⏸️"
 
-[node name="TurnLabel" type="Label" parent="UI" unique_id=22925974]
-offset_left = 300.0
-offset_top = 20.0
-offset_right = 760.0
-offset_bottom = 60.0
-theme_override_font_sizes/font_size = 18
+[node name="HBoxContainer" type="HBoxContainer" parent="UI/Control" unique_id=2100000002]
+layout_mode = 0
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = 100.0
+offset_top = -30.0
+offset_right = 460.0
+offset_bottom = 30.0
+grow_horizontal = 2
+grow_vertical = 0
+alignment = 1
 
-[node name="PlayBtn" type="Button" parent="UI" unique_id=1464935095]
-offset_left = 700.0
-offset_top = 298.0
-offset_right = 840.0
-offset_bottom = 338.0
+[node name="PlayBtn" type="Button" parent="UI/Control/HBoxContainer" unique_id=1464935095]
+layout_mode = 2
 text = "Bajar jugada"
 
-[node name="PassBtn" type="Button" parent="UI" unique_id=2078468464]
-offset_left = 716.0
-offset_top = 359.0
-offset_right = 826.0
-offset_bottom = 399.0
+[node name="PassBtn" type="Button" parent="UI/Control/HBoxContainer" unique_id=2078468464]
+layout_mode = 2
 text = "Pasar"
 
-[node name="RejectBtn" type="Button" parent="UI" unique_id=91048689]
-offset_left = 836.0
-offset_top = 359.0
-offset_right = 946.0
-offset_bottom = 399.0
+[node name="RejectBtn" type="Button" parent="UI/Control/HBoxContainer" unique_id=91048689]
+layout_mode = 2
 text = "Rechazar"
+
+[node name="VBoxContainer" type="VBoxContainer" parent="UI/Control" unique_id=2100000003]
+layout_mode = 0
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -400.0
+offset_top = 20.0
+offset_right = 400.0
+offset_bottom = 120.0
+grow_horizontal = 2
+mouse_filter = 2
+alignment = 1
+
+[node name="TurnCounterLabel" type="Label" parent="UI/Control/VBoxContainer" unique_id=529384714]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Turno 0"
+horizontal_alignment = 1
+
+[node name="TurnLabel" type="Label" parent="UI/Control/VBoxContainer" unique_id=22925974]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+horizontal_alignment = 1

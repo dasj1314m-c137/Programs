@@ -263,6 +263,7 @@ static func choose_card_to_discard(hand_with_draw: Array[Card]) -> Card:
 # Mejora mínima para que un bot tome una carta descartada. Con 35 cubre el par
 # (+50) y las 2 seguidas del mismo palo (+35); NO cubre los huecos (+15).
 const DISCARD_CLAIM_THRESHOLD: float = 35.0
+static var card_to_discard: Card = null
 # Recibe la mano YA con la carta descartada incluida. Compara la mejor mano
 # posible (quedándose el descarte y soltando la peor carta) contra su mano sin
 # esa carta. Devuelve true si la mejora alcanza el umbral.
@@ -276,12 +277,15 @@ static func is_discard_useful(hand_with_discard: Array[Card], discarded: Card) -
 	var to_discard := choose_card_to_discard(hand_with_discard)
 	if to_discard == null:
 		return false
-	var temp_hand := hand_with_discard.duplicate()
+	var temp_hand := hand_with_discard.duplicate()	
 	temp_hand.erase(to_discard)
+	if not temp_hand.any(func(card): return card.discarded):
+		return false
 	var improved_score := evaluate_hand(temp_hand)
-
-	return improved_score - base_score >= DISCARD_CLAIM_THRESHOLD
-	
+	if improved_score - base_score >= DISCARD_CLAIM_THRESHOLD:
+		card_to_discard = to_discard
+		return true
+	return false
 # --- DETECCIÓN DE GANADOR ---
 
 # Suma el total de cartas bajadas por un jugador (tamaño de todas sus jugadas).

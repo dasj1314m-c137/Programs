@@ -8,6 +8,7 @@ var melds_down: Array[Array]
 var melds_changed: bool = false
 var play: Array[Card]
 var is_bot: bool = true
+var took_discarded: bool = false
 
 func _init(a_name: String, bot: bool = true):
 	name = a_name
@@ -40,6 +41,7 @@ func choose_card_to_discard() -> Card:
 
 # Intenta buscar entre sus cartas si tiene alguna tercia o escalera para bajar a la mesa
 func try_down_melds() -> void:
+	play.clear()
 	# Revisa combinaciones de 3 cartas en su mano
 	if play or has_play():
 		melds_changed = true

@@ -34,6 +34,7 @@ var deck: Deck
 var players: Array[Player] = []
 var last_discarded_card: Card
 var card_to_discard: Card
+var meld_discard: bool = false
 var winner: Player = null
 var current_player_index: int = 0
 var is_forced_turn: bool = false
@@ -98,6 +99,7 @@ func _setup_round() -> void:
 	
 	for player in players:
 		player.clear_hand()
+		player.took_discarded = false
 	
 	# print("--- NUEVA RONDA INICIADA ---")
 	change_state(State.DEAL_CARDS)
@@ -156,23 +158,33 @@ func _start_player_turn() -> void:
 		
 	if is_discarded_turn:
 		is_discarded_turn = false
-		active_player.down_melds()
-		render_player_hand.emit(active_player)
-		await get_tree().create_timer(0.2, false).timeout
-		melds_updated.emit(active_player, active_player.melds_down)
-		await get_tree().create_timer(1.0, false).timeout
+		# El bot pudo tomar la carta solo para formar un par: baja solo si tiene jugada completa
+		if meld_discard:
+			meld_discard = false
+			active_player.down_melds()
+			render_player_hand.emit(active_player)
+			await get_tree().create_timer(0.2, false).timeout
+			melds_updated.emit(active_player, active_player.melds_down)
+			await get_tree().create_timer(1.0, false).timeout
 		
-		# ¿El jugador ganó al bajar? (10+ cartas bajadas)
-		if Evaluator.has_won(active_player.melds_down):
-			_declare_winner(active_player)
+			# ¿El jugador ganó al bajar? (10+ cartas bajadas)
+			if Evaluator.has_won(active_player.melds_down):
+				_declare_winner(active_player)
+				return
+				
+			# print(active_player.name, " debe pagar por la carta descartada que tomo.")
+			# Paga descartando una carta de su mano
+			card_to_discard = active_player.choose_card_to_discard()
+			if card_to_discard:
+				player_discards_card(active_player, card_to_discard)
 			return
-			
-		# print(active_player.name, " debe pagar por la carta descartada que tomo.")
-		# Paga descartando una carta de su mano
-		card_to_discard = active_player.choose_card_to_discard()
-		if card_to_discard:
-			player_discards_card(active_player, card_to_discard)
-		return
+		
+		else:
+			card_to_discard = Evaluator.card_to_discard
+			Evaluator.card_to_discard = null
+			if card_to_discard:
+				player_discards_card(active_player, card_to_discard)
+			return
 
 
 	# 1. El jugador roba una carta del mazo
@@ -326,6 +338,7 @@ func check_who_claims_card() -> void:
 			
 			current_player_index = check_index
 			claimed = true
+			candidate_player.took_discarded = true
 			
 			# Transición de turno para que el jugador obligado pague descartando otra
 			# ¡AQUÍ MARCAMOS QUE ES UN TURNO FORZADO!
@@ -338,39 +351,51 @@ func check_who_claims_card() -> void:
 			var check_index = (current_player_index + i) % total_players
 			var candidate_player = players[check_index]
 			
-			candidate_player.save_card(last_discarded_card)
-			card_discarded.emit(back_card, false)
-			card_drawn.emit(last_discarded_card)
-			await get_tree().create_timer(1.0, false).timeout
-			
-			var should_claim: bool = false
-			if candidate_player.is_bot:
-				if candidate_player.has_play() and candidate_player.is_discarded_play():
-					should_claim = true
-					print(candidate_player.name, " va a usar la carta descartada: ", last_discarded_card.get_name())
-			else:
-				# Entregamos la carta y mostramos la UI normal de bajar/pasar.
-				# Pasar = devolver la carta; bajar una jugada = tomar la carta.
-				is_claim_turn = true
-				human_hand_interaction.emit(candidate_player, HumanPhase.MELD)
-				should_claim = await human_claim_resolved
-				is_claim_turn = false
-			
-			if should_claim:
-				last_discarded_card.discarded = false
-				current_player_index = check_index
-				claimed = true
+			if not candidate_player.took_discarded:
+				candidate_player.save_card(last_discarded_card)
+				card_discarded.emit(back_card, false)
+				card_drawn.emit(last_discarded_card)
+				await get_tree().create_timer(1.0, false).timeout
 				
-				is_discarded_turn = true
-				change_state(State.PLAYER_TURN)
-				break
+				var should_claim: bool = false
+				if candidate_player.is_bot:
+					if candidate_player.has_play() and candidate_player.is_discarded_play():
+						should_claim = true
+						meld_discard = true
+					elif Evaluator.is_discard_useful(candidate_player.hand_cards, last_discarded_card):
+						should_claim = true
+						print(candidate_player.name, " va a usar la carta descartada: ", last_discarded_card.get_name())
+				else:
+					if candidate_player.took_discarded:
+						# Ya tomó un descarte en esta cadena: pasa automáticamente
+						should_claim = false
+					else:
+						# Entregamos la carta y mostramos la UI normal de bajar/pasar.
+						# Pasar = devolver la carta; bajar una jugada = tomar la carta.
+						is_claim_turn = true
+						human_hand_interaction.emit(candidate_player, HumanPhase.MELD)
+						should_claim = await human_claim_resolved
+						is_claim_turn = false
+				
+				if should_claim:
+					last_discarded_card.discarded = false
+					current_player_index = check_index
+					claimed = true
+					candidate_player.took_discarded = true
+					
+					is_discarded_turn = true
+					change_state(State.PLAYER_TURN)
+					break
 			
-			candidate_player.remove_card(last_discarded_card)
-			card_drawn.emit(last_discarded_card)
-			card_discarded.emit(last_discarded_card, true)
-			await get_tree().create_timer(1.0, false).timeout
+				candidate_player.remove_card(last_discarded_card)
+				card_drawn.emit(last_discarded_card)
+				card_discarded.emit(last_discarded_card, true)
+				await get_tree().create_timer(1.0, false).timeout
 				
 	if not claimed:
+		# Fin de la cadena de reclamos: se resetean las banderas de descarte tomado
+		for player in players:
+			player.took_discarded = false
 		print("Nadie estuvo obligado a tomar la carta. Cae al pozo de descarte.")
 		_advance_turn_normal()
 
